@@ -1,0 +1,47 @@
+substitutions:
+  _REGION: africa-south1
+  _PROJECT_ID: df-frontend
+  _REPO: maoni
+  _IMAGE: maoni
+
+steps:
+  # Step 1: Install and run templ
+  - name: "golang"
+    entrypoint: "/bin/sh"
+    args:
+      - "-c"
+      - |
+        go install github.com/a-h/templ/cmd/templ@v0.2.747
+        templ generate
+
+  # Step 2: Run Tailwind CSS CLI
+  - name: "node:18"
+    entrypoint: "/bin/sh"
+    args:
+      - "-c"
+      - |
+        npm install -g tailwindcss@3.4.14
+        npm install -D @tailwindcss/forms
+        npm install -D @tailwindcss/typography
+        export PATH="$$(npm bin -g):$$PATH"
+        tailwindcss -c ./tailwind.config.js -i ./in.css -o ./app/assets/styles/main.css --minify
+
+  # Step 3: Compile Go binary for Linux/amd64
+  - name: "golang"
+    env: ["GOOS=linux", "GOARCH=amd64", "CGO_ENABLED=0"]
+    args: ["go", "build", "-o", "./bin/linux_amd64/maoni", "./app"]
+
+  # Step 4: Build Docker image
+  - name: "gcr.io/cloud-builders/docker"
+    args:
+      - "build"
+      - "-t"
+      - "${_REGION}-docker.pkg.dev/${_PROJECT_ID}/${_REPO}/${_IMAGE}-${_ENV}:$COMMIT_SHA"
+      - "."
+
+# Step 5: Push to Artifact Registry
+images:
+  - "${_REGION}-docker.pkg.dev/${_PROJECT_ID}/${_REPO}/${_IMAGE}-${_ENV}:$COMMIT_SHA"
+
+options:
+  logging: CLOUD_LOGGING_ONLY

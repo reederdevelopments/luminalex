@@ -1,0 +1,19 @@
+package base
+
+import "maoni/app/core/ui/layout"
+
+templ surveyPage(name string) {
+	@layout.Html("Maoni") {
+		<body class="bg-gray-100 text-gray-900">
+			<div class="container mx-auto p-8">
+				<div class="flex justify-between items-center">
+					<h1 class="text-3xl font-bold text-green-x-light">
+						Hello, { name }!
+					</h1>
+					<a href="/logout" class="px-4 py-2 bg-red-x-dark text-white rounded hover:bg-red-x-light">Logout</a>
+				</div>
+				<p class="mt-4">You have successfully logged in.</p>
+			</div>
+		</body>
+	}
+}

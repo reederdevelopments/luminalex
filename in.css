@@ -1,0 +1,13 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer components {
+    .is-fullscreen {
+        @apply fixed top-0 left-0 w-screen h-screen z-40;
+    }
+}
+
+opacity-gradient {
+    mask-image: linear-gradient(rgb(0 0 0 / 100%), transparent);
+}
