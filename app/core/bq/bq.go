@@ -36,6 +36,10 @@ func EnsureSchema(ctx context.Context, client *bigquery.Client, datasetID string
 		return err
 	}
 
+	if err := ensureSpecialSurveysTable(ctx, dataset); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -50,6 +54,7 @@ func ensureSurveysTable(ctx context.Context, dataset *bigquery.Dataset) error {
 		{Name: "options", Type: bigquery.StringFieldType, Repeated: true},
 		{Name: "is_required", Type: bigquery.BooleanFieldType, Required: true},
 		{Name: "group_number", Type: bigquery.IntegerFieldType},
+		{Name: "prefill_variable", Type: bigquery.StringFieldType},
 	}
 
 	schema := bigquery.Schema{
@@ -62,6 +67,7 @@ func ensureSurveysTable(ctx context.Context, dataset *bigquery.Dataset) error {
 		{Name: "updated_at", Type: bigquery.TimestampFieldType, Required: true},
 		{Name: "questions", Type: bigquery.RecordFieldType, Repeated: true, Schema: questionSchema},
 		{Name: "group_headings", Type: bigquery.StringFieldType, Repeated: true},
+		{Name: "type", Type: bigquery.StringFieldType},
 	}
 
 	if err := createOrUpdateTable(ctx, table, schema); err != nil {
@@ -89,6 +95,28 @@ func ensureResponsesTable(ctx context.Context, dataset *bigquery.Dataset) error 
 
 	if err := createOrUpdateTable(ctx, table, schema); err != nil {
 		return fmt.Errorf("responses table: %w", err)
+	}
+	return nil
+}
+
+func ensureSpecialSurveysTable(ctx context.Context, dataset *bigquery.Dataset) error {
+	log.Println("Ensuring 'special_surveys' table exists and schema is up to date...")
+	table := dataset.Table("special_surveys")
+
+	schema := bigquery.Schema{
+		{Name: "assignment_id", Type: bigquery.StringFieldType, Required: true},
+		{Name: "survey_id", Type: bigquery.StringFieldType, Required: true},
+		{Name: "user_email", Type: bigquery.StringFieldType, Required: true},
+		{Name: "variable_1", Type: bigquery.StringFieldType},
+		{Name: "variable_2", Type: bigquery.StringFieldType},
+		{Name: "variable_3", Type: bigquery.StringFieldType},
+		{Name: "variable_4", Type: bigquery.StringFieldType},
+		{Name: "variable_5", Type: bigquery.StringFieldType},
+		{Name: "response_id", Type: bigquery.StringFieldType},
+	}
+
+	if err := createOrUpdateTable(ctx, table, schema); err != nil {
+		return fmt.Errorf("special_surveys table: %w", err)
 	}
 	return nil
 }

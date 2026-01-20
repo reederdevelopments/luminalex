@@ -25,6 +25,15 @@ templ surveyForm(s survey.Survey, pageTitle, formAction string) {
 							<input type="text" name="Name" id="name" value={ s.Name } required class="block w-full rounded-md border-gray-300 shadow-sm focus:border-green-x-dark focus:ring-green-x-dark sm:text-sm"/>
 						</div>
 					</div>
+					<div class="sm:col-span-2">
+						<label for="type" class="block text-sm font-medium leading-6 text-gray-900">Survey Type</label>
+						<div class="mt-2">
+							<select name="Type" id="type" class="block w-full rounded-md border-gray-300 shadow-sm focus:border-green-x-dark focus:ring-green-x-dark sm:text-sm">
+								<option value={ survey.TypeNormal } selected?={ s.Type == survey.TypeNormal || s.Type == "" }>Normal</option>
+								<option value={ survey.TypeSpecial } selected?={ s.Type == survey.TypeSpecial }>Special</option>
+							</select>
+						</div>
+					</div>
 					<div class="col-span-full">
 						<label for="description" class="block text-sm font-medium leading-6 text-gray-900">Description</label>
 						<div class="mt-2">

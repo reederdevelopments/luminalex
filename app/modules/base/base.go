@@ -3,7 +3,7 @@ package base
 import (
 	"log"
 	"maoni/app/core/auth"
-	"maoni/app/core/mid" // Change this import
+	"maoni/app/core/mid"
 	"maoni/app/core/survey"
 	"maoni/app/core/web"
 	"net/http"

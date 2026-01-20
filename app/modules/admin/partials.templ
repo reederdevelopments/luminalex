@@ -60,7 +60,7 @@ templ questionForm(q survey.Question, index int) {
 					<input type="text" name={ fmt.Sprintf("questions[%d].Text", index) } id={ fmt.Sprintf("question_text_%d", index) } value={ q.Text } required class="block w-full rounded-md border-gray-300 shadow-sm focus:border-green-x-dark focus:ring-green-x-dark sm:text-sm"/>
 				</div>
 			</div>
-			<div class="sm:col-span-2">
+			<div class="sm:col-span-3">
 				<label for={ fmt.Sprintf("question_type_%d", index) } class="block text-sm font-medium leading-6 text-gray-900">Question Type</label>
 				<div class="mt-2">
 					<select
@@ -74,11 +74,25 @@ templ questionForm(q survey.Question, index int) {
 					</select>
 				</div>
 			</div>
-			<div class="sm:col-span-1">
+			<div class="sm:col-span-3">
 				<label for={ fmt.Sprintf("question_group_%d", index) } class="block text-sm font-medium leading-6 text-gray-900">Group</label>
 				<div class="mt-2">
 					<input type="number" name={ fmt.Sprintf("questions[%d].GroupNumber", index) } id={ fmt.Sprintf("question_group_%d", index) } value={ fmt.Sprintf("%d", getGroupNumber(q)) } min="1" class="block w-full rounded-md border-gray-300 shadow-sm focus:border-green-x-dark focus:ring-green-x-dark sm:text-sm"/>
 				</div>
+			</div>
+			<div class="sm:col-span-3">
+				<label for={ fmt.Sprintf("prefill_variable_%d", index) } class="block text-sm font-medium leading-6 text-gray-900">Prefill Variable</label>
+				<div class="mt-2">
+					<select name={ fmt.Sprintf("questions[%d].PrefillVariable", index) } id={ fmt.Sprintf("prefill_variable_%d", index) } class="block w-full rounded-md border-gray-300 shadow-sm focus:border-green-x-dark focus:ring-green-x-dark sm:text-sm">
+						<option value="" selected?={ q.PrefillVariable == "" }>None</option>
+						<option value="variable_1" selected?={ q.PrefillVariable == "variable_1" }>Variable 1</option>
+						<option value="variable_2" selected?={ q.PrefillVariable == "variable_2" }>Variable 2</option>
+						<option value="variable_3" selected?={ q.PrefillVariable == "variable_3" }>Variable 3</option>
+						<option value="variable_4" selected?={ q.PrefillVariable == "variable_4" }>Variable 4</option>
+						<option value="variable_5" selected?={ q.PrefillVariable == "variable_5" }>Variable 5</option>
+					</select>
+				</div>
+				<p class="mt-2 text-sm text-gray-500">For Special Surveys only. Select a variable to prefill this question's answer.</p>
 			</div>
 		</div>
 		<div class={ "mt-6 options-container", templ.KV("hidden", !isSelectable(q.Type)) }>
