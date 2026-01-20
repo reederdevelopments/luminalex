@@ -109,6 +109,7 @@ func (f FireStore) HttpCreate(ctx context.Context, now time.Time, u goth.User, w
 				GoogleID:     u.UserID,
 				Thumbnail:    u.AvatarURL,
 				LastSyncTime: now.Unix(),
+				IsAdmin:      false,
 			}
 			if _, err := f.db.Collection(collection.Users).Doc(newUserID).Set(ctx, newUser); err != nil {
 				return err

@@ -12,4 +12,5 @@ type User struct {
 	GoogleID     string
 	LastSyncTime int64
 	Thumbnail    string
+	IsAdmin      bool
 }

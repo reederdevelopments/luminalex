@@ -7,10 +7,12 @@ import (
 	"fmt"
 	"log"
 	"maoni/app/core/auth"
+	"maoni/app/core/bq"
 	"maoni/app/core/fire"
 	"maoni/app/core/mid"
 	"maoni/app/core/web"
 	"maoni/app/core/webx"
+	"maoni/app/modules/admin"
 	"maoni/app/modules/base"
 	"net/http"
 	"os"
@@ -48,6 +50,7 @@ func run(l *log.Logger) error {
 		SessionSecret   string `conf:",mask"`
 		ServiceAcc      string `conf:",mask"`
 		FsDbID          string `conf:"default:(default)"`
+		BqDatasetID     string `conf:"default:MAONI"`
 	}{}
 
 	// Initial parse to capture command-line flags like --dev
@@ -116,6 +119,17 @@ func run(l *log.Logger) error {
 	}
 	defer fsDb.Close()
 
+	bqClient, err := bq.NewClient(ctx, cfg.GoogleProjectID)
+	if err != nil {
+		return fmt.Errorf("failed to create bigquery client: %w", err)
+	}
+	defer bqClient.Close()
+
+	if err := bq.EnsureSchema(ctx, bqClient, cfg.BqDatasetID); err != nil {
+		return fmt.Errorf("failed to ensure bigquery schema: %w", err)
+	}
+	surveyStore := bq.NewSurveyStore(bqClient, cfg.BqDatasetID)
+
 	// --- Authentication ---
 	authService := auth.NewService(cfg.SessionSecret)
 	sessionStore := auth.NewFireStore(l, fsDb, authService, cfg.Dev)
@@ -141,14 +155,11 @@ func run(l *log.Logger) error {
 	app := web.NewApp()
 
 	// --- Static Assets ---
-	// The StaticHandler will operate on the root embed.FS. The handler itself
-	// correctly forms the path to the asset from the request URL.
 	staticHandler := webx.StaticHandler(assets, l, cfg.Dev)
-
 	app.HandleStd(
 		http.MethodGet,
-		"/assets/{filepath...}",
-		staticHandler.ServeHTTP, // Use the static handler directly
+		"/assets/*",
+		staticHandler,
 		mid.Log(l),
 		mid.CatchErr(l),
 		mid.CatchPanic(),
@@ -156,7 +167,8 @@ func run(l *log.Logger) error {
 	)
 
 	// Initialize modules/routes
-	base.InitModule(l, app, sessionStore)
+	base.InitModule(l, app, sessionStore, surveyStore)
+	admin.InitModule(l, app, sessionStore, surveyStore)
 
 	// Start Server
 	host := fmt.Sprintf("0.0.0.0:%d", cfg.Port)

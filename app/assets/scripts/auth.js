@@ -1,3 +1,4 @@
+
 const signinBtn = document.getElementById("signin-btn");
 
 if (signinBtn) {
@@ -6,7 +7,9 @@ if (signinBtn) {
 
 		window.addEventListener("message", (e) => {
 			if (e.data === "AUTH_SUCCESS") {
-				popup.close();
+				if (popup) {
+					popup.close();
+				}
 				location.reload();
 			}
 		});

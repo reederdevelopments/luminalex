@@ -1,3 +1,4 @@
+
 substitutions:
   _REGION: africa-south1
   _PROJECT_ID: df-frontend
@@ -26,12 +27,16 @@ steps:
         export PATH="$$(npm bin -g):$$PATH"
         tailwindcss -c ./tailwind.config.js -i ./in.css -o ./app/assets/styles/main.css --minify
 
-  # Step 3: Compile Go binary for Linux/amd64
+  # Step 3: Tidy go.mod
+  - name: "golang"
+    args: ["go", "mod", "tidy"]
+
+  # Step 4: Compile Go binary for Linux/amd64
   - name: "golang"
     env: ["GOOS=linux", "GOARCH=amd64", "CGO_ENABLED=0"]
     args: ["go", "build", "-o", "./bin/linux_amd64/maoni", "./app"]
 
-  # Step 4: Build Docker image
+  # Step 5: Build Docker image
   - name: "gcr.io/cloud-builders/docker"
     args:
       - "build"
@@ -39,7 +44,7 @@ steps:
       - "${_REGION}-docker.pkg.dev/${_PROJECT_ID}/${_REPO}/${_IMAGE}-${_ENV}:$COMMIT_SHA"
       - "."
 
-# Step 5: Push to Artifact Registry
+# Step 6: Push to Artifact Registry
 images:
   - "${_REGION}-docker.pkg.dev/${_PROJECT_ID}/${_REPO}/${_IMAGE}-${_ENV}:$COMMIT_SHA"
 

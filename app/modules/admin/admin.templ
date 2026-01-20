@@ -1,0 +1,136 @@
+
+package admin
+
+import "maoni/app/core/auth"
+import "maoni/app/core/survey"
+import "net/http"
+import "maoni/app/core/ui/icon"
+import "fmt"
+
+type surveysPageData struct {
+	Surveys      []survey.Survey
+	ShowInactive bool
+}
+
+templ adminPage(r *http.Request, user auth.User, pageTitle string, data any) {
+	@adminLayout(user, pageTitle, content(r, pageTitle, data))
+}
+
+templ content(r *http.Request, pageTitle string, data any) {
+	@Tabs(r, adminTabs(r)) {
+		switch v := data.(type) {
+			case surveysPageData:
+				@surveysContent(v)
+			case string: // For "Results" placeholder
+				@resultsContent()
+		}
+	}
+}
+
+templ surveysContent(data surveysPageData) {
+	<div>
+		<div class="sm:flex sm:items-center">
+			<div class="sm:flex-auto">
+				<h1 class="text-base font-semibold leading-6 text-gray-900">Surveys</h1>
+				<p class="mt-2 text-sm text-gray-700">A list of all the surveys in your account including their title, status, and responses.</p>
+			</div>
+			<div class="mt-4 sm:ml-16 sm:mt-0 sm:flex-none">
+				<a href="/admin/surveys/add" class="inline-flex items-center gap-x-2 rounded-md bg-green-x-light px-3.5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-green-x-dark focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-x-light">
+					@icon.Plus()
+					Add New Survey
+				</a>
+			</div>
+		</div>
+		<div class="mt-4 flex justify-end">
+			<div class="flex items-center gap-2">
+				<label for="show-inactive" class="text-sm font-medium text-gray-700">Show Inactive Surveys</label>
+				if data.ShowInactive {
+					<a
+						id="show-inactive"
+						href="/admin/surveys"
+						class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent bg-green-x-dark transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-green-x-dark focus:ring-offset-2"
+					>
+						<span class="inline-block h-5 w-5 translate-x-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"></span>
+					</a>
+				} else {
+					<a
+						id="show-inactive"
+						href="/admin/surveys?show_inactive=true"
+						class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent bg-gray-200 transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-green-x-dark focus:ring-offset-2"
+					>
+						<span class="inline-block h-5 w-5 translate-x-0 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"></span>
+					</a>
+				}
+			</div>
+		</div>
+		<div class="mt-8 flow-root">
+			<div class="-mx-4 -my-2 overflow-x-auto sm:-mx-6 lg:-mx-8">
+				<div class="inline-block min-w-full py-2 align-middle sm:px-6 lg:px-8">
+					if len(data.Surveys) == 0 {
+						<div class="flex h-96 items-center justify-center rounded-lg border-4 border-dashed border-gray-200 p-4">
+							<p class="text-center text-gray-500">No surveys found. Create one to get started!</p>
+						</div>
+					} else {
+						<table class="min-w-full divide-y divide-gray-300">
+							<thead>
+								<tr>
+									<th scope="col" class="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 sm:pl-0">Name</th>
+									<th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Responses</th>
+									<th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Status</th>
+									<th scope="col" class="relative py-3.5 pl-3 pr-4 sm:pr-0">
+										<span class="sr-only">Edit</span>
+									</th>
+								</tr>
+							</thead>
+							<tbody class="divide-y divide-gray-200">
+								for _, s := range data.Surveys {
+									<tr>
+										<td class="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900 sm:pl-0">
+											{ s.Name }
+											<div class="text-gray-500 font-normal">{ s.Description }</div>
+										</td>
+										<td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">{ fmt.Sprintf("%d", s.ResponseCount) }</td>
+										<td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+											<form action={ templ.URL(fmt.Sprintf("/admin/surveys/%s/toggle", s.ID)) } method="post">
+												<button type="submit" class={ "px-2 py-1 rounded-full text-xs font-medium text-white", templ.KV("bg-green-x-light", s.IsEnabled), templ.KV("bg-red-x-light", !s.IsEnabled) }>
+													if s.IsEnabled {
+														Enabled
+													} else {
+														Disabled
+													}
+												</button>
+											</form>
+										</td>
+										<td class="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-0">
+											<a href={ templ.URL(fmt.Sprintf("/admin/surveys/%s/edit", s.ID)) } class="text-green-x-dark hover:text-green-x-dark">Edit<span class="sr-only">, { s.Name }</span></a>
+										</td>
+									</tr>
+								}
+							</tbody>
+						</table>
+					}
+				</div>
+			</div>
+		</div>
+	</div>
+}
+
+templ resultsContent() {
+	<div>
+		<div class="sm:flex sm:items-center">
+			<div class="sm:flex-auto">
+				<h1 class="text-base font-semibold leading-6 text-gray-900">Results</h1>
+				<p class="mt-2 text-sm text-gray-700">View and analyze the responses from your surveys.</p>
+			</div>
+		</div>
+		<div class="mt-8 flow-root">
+			<div class="-mx-4 -my-2 overflow-x-auto sm:-mx-6 lg:-mx-8">
+				<div class="inline-block min-w-full py-2 align-middle sm:px-6 lg:px-8">
+					<div class="flex h-96 items-center justify-center rounded-lg border-4 border-dashed border-gray-200 p-4">
+						<p class="text-center text-gray-500">Survey results and analytics will be displayed here.</p>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+}

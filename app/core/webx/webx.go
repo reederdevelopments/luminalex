@@ -7,10 +7,8 @@ import (
 	"io"
 	"io/fs"
 	"log"
-	"mime"
 	"net/http"
 	"os"
-	"path/filepath"
 	"strings"
 	"sync"
 
@@ -67,110 +65,53 @@ func md5Util(r io.Reader) (string, error) {
 	return fmt.Sprintf("%x", h.Sum(nil)), nil
 }
 
-func StaticHandler(fs fs.FS, l *log.Logger, discardLogs bool) http.HandlerFunc {
+func StaticHandler(fs fs.FS, l *log.Logger, isDev bool) http.HandlerFunc {
 	c := newMemCache()
 	fileServer := http.FileServer(http.FS(fs))
 
-	// overwrite the logger with one that discards logs
-	if discardLogs {
+	if !isDev {
 		l = logx.NewDiscard()
 	}
 
-	// create an http handler
-	h := func(w http.ResponseWriter, r *http.Request) {
-		// strip the leading / from the URL path to turn it into
-		// a valid file path
+	return func(w http.ResponseWriter, r *http.Request) {
 		path := strings.TrimPrefix(r.URL.Path, "/")
 
-		// Try to get the asset etag
+		// In development, we don't cache to allow for hot-reloading.
+		if isDev {
+			fileServer.ServeHTTP(w, r)
+			return
+		}
+
 		etag, ok := c.get(path)
 
-		// if we haven't cached the asset yet, we should do that first
 		if !ok {
 			l.Printf("etag not set, hashing file: %s", path)
 
-			// try to open the file for the given path
 			file, err := fs.Open(path)
 			if err != nil {
-				// if the file does not exist, we respond with 404
 				if errors.Is(err, os.ErrNotExist) {
-					l.Print("404 -> file not found")
-					w.Header().Set("Content-Type", "text/plain")
-					w.WriteHeader(http.StatusNotFound)
-					_, _ = w.Write([]byte("asset not found"))
-					return
-					// otherwise something went wrong
-				} else {
-					l.Printf("internal error: %s", err)
-					w.Header().Set("Content-Type", "text/plain")
-					w.WriteHeader(http.StatusInternalServerError)
-					_, _ = w.Write([]byte("something went wrong!"))
+					http.NotFound(w, r)
 					return
 				}
+				http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+				return
 			}
-			defer file.Close() // Fix: Ensure the file is closed to prevent resource leaks.
+			defer file.Close()
 
-			// if the file was opened successfully, we set it in our in-mem cache
 			etag, err = c.set(path, file)
-
-			// if that fails, we return an internal server error
 			if err != nil {
-				l.Printf("internal error: %s", err)
-				w.Header().Set("Content-Type", "text/plain")
-				w.WriteHeader(http.StatusInternalServerError)
-				_, _ = w.Write([]byte("internal server error (500)"))
+				http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 				return
 			}
 		}
 
-		// try to get the if-none-match header from the request,
-		// if it is available and valid, we respond with a
-		// status-304 NotModified. This informs the browser that
-		// it may use the asset that is still cached - sending almost
-		// zero bytes over the network
 		if etag == r.Header.Get("if-none-match") {
-			l.Printf("client has cached file: %s", path)
 			w.WriteHeader(http.StatusNotModified)
 			return
-
-			// if the client’s browser does not have the 'if-none-match'
-			// header present in the request, we set the 'cache-control' and
-			// 'etag' headers
-		} else {
-
-			// The no-cache response directive indicates that the response can be stored in caches,
-			// but the response must be validated with the origin server before each reuse
-			//
-			// https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Cache-Control
-			w.Header().Set("cache-control", "no-cache")
-			w.Header().Set("etag", etag)
-
-			// --- MODIFICATION START ---
-			// Explicitly set Content-Type for common web assets. This is more robust
-			// than relying on mime.TypeByExtension alone, which can fail in minimal
-			// container environments like Alpine.
-			ext := filepath.Ext(path)
-			var contentType string
-			switch ext {
-			case ".css":
-				contentType = "text/css; charset=utf-8"
-			case ".js":
-				contentType = "application/javascript; charset=utf-8"
-			case ".svg":
-				contentType = "image/svg+xml"
-			default:
-				// Fallback to the standard library for other types.
-				contentType = mime.TypeByExtension(ext)
-			}
-
-			if contentType != "" {
-				w.Header().Set("Content-Type", contentType)
-			}
-			// --- MODIFICATION END ---
-
-			fileServer.ServeHTTP(w, r)
 		}
-	}
 
-	return h
+		w.Header().Set("cache-control", "no-cache")
+		w.Header().Set("etag", etag)
+		fileServer.ServeHTTP(w, r)
+	}
 }

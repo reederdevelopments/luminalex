@@ -50,13 +50,13 @@ func (m module) authCallbackHandler(w http.ResponseWriter, r *http.Request) erro
 	user, err := gothic.CompleteUserAuth(w, r)
 	if err != nil {
 		m.l.Printf("ERROR completing user auth: %s", err)
-		http.Error(w, "Something went wrong.", http.StatusInternalServerError)
+		// Return the error directly. The middleware will handle the response.
 		return err
 	}
 
 	if err := m.sessionStore.HttpCreate(ctx, now, user, w, r); err != nil {
 		m.l.Printf("ERROR creating session: %s", err)
-		http.Error(w, "Failed to create session.", http.StatusInternalServerError)
+		// Return the error directly. The middleware will handle the response.
 		return err
 	}
 

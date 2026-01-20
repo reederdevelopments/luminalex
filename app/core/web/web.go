@@ -13,6 +13,20 @@ const DefaultShutdownTimeout = time.Second * 15
 
 var ErrHandled = errors.New("handler has already written a response")
 
+type RequestError struct {
+	Err    error
+	Status int
+}
+
+func (e *RequestError) Error() string {
+	return e.Err.Error()
+}
+
+// ADDED: Constructor for RequestError
+func NewRequestError(err error, status int) error {
+	return &RequestError{Err: err, Status: status}
+}
+
 type Handler func(w http.ResponseWriter, r *http.Request) error
 
 type Middleware func(h Handler) Handler

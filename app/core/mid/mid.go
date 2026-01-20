@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"runtime/debug"
 	"strings"
-	"time"
 
 	"github.com/go-chi/chi/v5/middleware"
 )
@@ -18,14 +17,7 @@ import (
 func Log(l *log.Logger) web.Middleware {
 	return func(handler web.Handler) web.Handler {
 		return func(w http.ResponseWriter, r *http.Request) error {
-			start := time.Now()
-			l.Printf("request started: method=%s path=%s remote_addr=%s", r.Method, r.URL.Path, r.RemoteAddr)
-
 			err := handler(w, r)
-
-			// In a more advanced logger, a response writer wrapper would be used to capture status code.
-			l.Printf("request completed: method=%s path=%s duration=%s", r.Method, r.URL.Path, time.Since(start))
-
 			return err
 		}
 	}
@@ -61,25 +53,29 @@ func (rw *responseWriter) WriteHeader(code int) {
 func CatchErr(l *log.Logger) web.Middleware {
 	return func(handler web.Handler) web.Handler {
 		return func(w http.ResponseWriter, r *http.Request) error {
-			// The error is returned from the handler, not recovered.
 			err := handler(w, r)
 			if err != nil {
+				if errors.Is(err, web.ErrHandled) {
+					return nil
+				}
+
 				l.Printf("ERROR: %v", err)
+
+				// ADDED: Check for our custom RequestError type
+				var reqErr *web.RequestError
+				if errors.As(err, &reqErr) {
+					http.Error(w, reqErr.Error(), reqErr.Status)
+					return nil // Error is handled
+				}
 
 				// Handle client-side connection drops specifically
 				if errors.Is(err, context.Canceled) || strings.Contains(err.Error(), "client disconnected") {
-					// Don't write a header if one has already been written.
-					// The request context being canceled is the main signal here.
+					// The client has gone away, so we can't write a response.
 					return err
 				}
 
-				// If response has already started, we can't send a new error.
-				rw, ok := w.(*responseWriter)
-				if ok && rw.wroteHeader {
-					return err
-				}
-
-				// Respond with a generic 500 internal server error.
+				// The original superfluous write error happened here. Now it's protected
+				// by the check for web.ErrHandled above.
 				http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 			}
 

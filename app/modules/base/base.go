@@ -4,6 +4,7 @@ import (
 	"log"
 	"maoni/app/core/auth"
 	"maoni/app/core/mid" // Change this import
+	"maoni/app/core/survey"
 	"maoni/app/core/web"
 	"net/http"
 )
@@ -11,6 +12,7 @@ import (
 type module struct {
 	l            *log.Logger
 	sessionStore auth.Store
+	surveyStore  survey.Store
 }
 
 func stdMid(l *log.Logger, additionalMid ...web.Middleware) []web.Middleware {
@@ -27,10 +29,12 @@ func InitModule(
 	l *log.Logger,
 	app *web.App,
 	sessionStore auth.Store,
+	surveyStore survey.Store,
 ) {
 	m := module{
 		l:            l,
 		sessionStore: sessionStore,
+		surveyStore:  surveyStore,
 	}
 
 	// Unprotected routes
@@ -41,4 +45,6 @@ func InitModule(
 
 	// Protected routes
 	app.Handle(http.MethodGet, "/", m.surveyLoader, stdMid(l, sessionStore.Mid)...)
+	app.Handle(http.MethodGet, "/surveys/{id}", m.viewSurveyHandler, stdMid(l, sessionStore.Mid)...)
+	app.Handle(http.MethodPost, "/surveys/{id}", m.submitSurveyHandler, stdMid(l, sessionStore.Mid)...)
 }

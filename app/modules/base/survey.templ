@@ -1,18 +1,223 @@
 package base
 
 import "maoni/app/core/ui/layout"
+import "maoni/app/core/auth"
+import "maoni/app/core/survey"
+import "fmt"
+import "sort"
 
-templ surveyPage(name string) {
+// --- Helper Logic (Regular Go Code) ---
+
+type mappedGroup struct {
+	Heading   string
+	Questions []survey.Question
+}
+
+// getMappedGroups organizes questions for the template to loop through easily.
+func getMappedGroups(s survey.Survey) []mappedGroup {
+	groups := make(map[int][]survey.Question)
+	var groupNumbers []int
+	
+	for _, q := range s.Questions {
+		groupNum := q.GroupNumber
+		if groupNum == 0 {
+			groupNum = 1
+		}
+		if _, ok := groups[groupNum]; !ok {
+			groupNumbers = append(groupNumbers, groupNum)
+		}
+		groups[groupNum] = append(groups[groupNum], q)
+	}
+	sort.Ints(groupNumbers)
+
+	var result []mappedGroup
+	for _, gn := range groupNumbers {
+		heading := ""
+		if gn > 0 && gn <= len(s.GroupHeadings) {
+			heading = s.GroupHeadings[gn-1]
+		}
+		result = append(result, mappedGroup{
+			Heading:   heading,
+			Questions: groups[gn],
+		})
+	}
+	return result
+}
+
+// getQuestionNumber finds the 1-based index of a question across the whole survey.
+func getQuestionNumber(s survey.Survey, qID string) int {
+	for i, q := range s.Questions {
+		if q.ID == qID {
+			return i + 1
+		}
+	}
+	return 0
+}
+
+// --- Templ Components ---
+
+templ surveyListPage(user auth.User, surveys []survey.Survey) {
 	@layout.Html("Maoni") {
-		<body class="bg-gray-100 text-gray-900">
-			<div class="container mx-auto p-8">
-				<div class="flex justify-between items-center">
-					<h1 class="text-3xl font-bold text-green-x-light">
-						Hello, { name }!
-					</h1>
-					<a href="/logout" class="px-4 py-2 bg-red-x-dark text-white rounded hover:bg-red-x-light">Logout</a>
+		<body class="bg-gray-100">
+			@header(user)
+			<div class="container mx-auto p-4 sm:p-8 -mt-10">
+				<div class="bg-white p-6 rounded-lg shadow-lg">
+					<h2 class="text-2xl font-bold text-gray-800">Available Surveys</h2>
+					if len(surveys) == 0 {
+						<p class="mt-4 text-gray-600">There are no active surveys at the moment. Please check back later!</p>
+					} else {
+						<ul class="mt-4 space-y-4">
+							for _, s := range surveys {
+								<li class="border rounded-lg p-4 hover:bg-gray-50 transition-colors">
+									<a href={ templ.URL("/surveys/" + s.ID) } class="block">
+										<h3 class="font-semibold text-lg text-green-x-dark">{ s.Name }</h3>
+										<p class="text-gray-600 mt-1">{ s.Description }</p>
+									</a>
+								</li>
+							}
+						</ul>
+					}
 				</div>
-				<p class="mt-4">You have successfully logged in.</p>
+			</div>
+		</body>
+	}
+}
+
+templ takeSurveyPage(user auth.User, s survey.Survey) {
+	@layout.Html(s.Name) {
+		<body class="bg-gray-100">
+			@header(user)
+			<div class="container mx-auto p-4 sm:p-8 -mt-10">
+				<div class="bg-white p-6 rounded-lg shadow-lg">
+					<form action={ templ.URL("/surveys/" + s.ID) } method="POST">
+						<div class="space-y-8">
+							<div>
+								<h1 class="text-2xl font-bold text-gray-800">{ s.Name }</h1>
+								if s.Description != "" {
+									<p class="mt-2 text-gray-600">{ s.Description }</p>
+								}
+							</div>
+							
+							for _, group := range getMappedGroups(s) {
+								if group.Heading != "" {
+									<div class="border-b border-gray-900/10 pb-6 pt-6">
+										<h2 class="text-xl font-semibold leading-7 text-gray-900">
+											@templ.Raw(group.Heading)
+										</h2>
+									</div>
+								}
+								
+								for _, q := range group.Questions {
+									<div class="border-t border-gray-200 pt-6">
+										<label class="text-base font-semibold text-gray-900">
+											{ fmt.Sprintf("%d. %s", getQuestionNumber(s, q.ID), q.Text) }
+											if q.IsRequired {
+												<span class="text-red-600">*</span>
+											}
+										</label>
+										<div class="mt-4 space-y-4">
+											switch q.Type {
+												case "text":
+													<input type="text" name={ q.ID } id={ q.ID } class="block w-full rounded-md border-gray-300 shadow-sm focus:border-green-x-dark focus:ring-green-x-dark sm:text-sm" required?={ q.IsRequired }/>
+												case "textarea":
+													<textarea name={ q.ID } id={ q.ID } rows="4" class="block w-full rounded-md border-gray-300 shadow-sm focus:border-green-x-dark focus:ring-green-x-dark sm:text-sm" required?={ q.IsRequired }></textarea>
+												case "multiple-choice":
+													for _, opt := range q.Options {
+														<div class="flex items-center">
+															<input id={ q.ID + "_" + opt } name={ q.ID } type="radio" value={ opt } class="h-4 w-4 border-gray-300 text-green-x-dark focus:ring-green-x-dark" required?={ q.IsRequired }/>
+															<label for={ q.ID + "_" + opt } class="ml-3 block text-sm font-medium leading-6 text-gray-900">{ opt }</label>
+														</div>
+													}
+												case "checkbox":
+													for _, opt := range q.Options {
+														<div class="relative flex items-start">
+															<div class="flex h-6 items-center">
+																<input id={ q.ID + "_" + opt } name={ q.ID } type="checkbox" value={ opt } class="h-4 w-4 rounded border-gray-300 text-green-x-dark focus:ring-green-x-dark"/>
+															</div>
+															<div class="ml-3 text-sm leading-6">
+																<label for={ q.ID + "_" + opt } class="font-medium text-gray-900">{ opt }</label>
+															</div>
+														</div>
+													}
+												case "dropdown":
+													<select id={ q.ID } name={ q.ID } class="mt-2 block w-full rounded-md border-0 py-1.5 pl-3 pr-10 text-gray-900 ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-green-x-dark sm:text-sm sm:leading-6" required?={ q.IsRequired }>
+														if q.IsRequired {
+															<option value="" disabled selected>Select an option</option>
+														} else {
+															<option value="">N/A</option>
+														}
+														for _, opt := range q.Options {
+															<option value={ opt }>{ opt }</option>
+														}
+													</select>
+											}
+										</div>
+									</div>
+								}
+							}
+						</div>
+						<div class="mt-8 border-t border-gray-200 pt-6">
+							<button type="submit" class="rounded-md bg-green-x-light px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-green-x-dark">Submit</button>
+						</div>
+					</form>
+				</div>
+			</div>
+		</body>
+	}
+}
+
+templ surveyThankYouPage(user auth.User) {
+	@layout.Html("Thank You!") {
+		<body class="bg-gray-100">
+			@header(user)
+			<div class="container mx-auto p-4 sm:p-8 -mt-10">
+				<div class="bg-white p-6 rounded-lg shadow-lg text-center">
+					<h1 class="text-2xl font-bold text-gray-800">Thank You!</h1>
+					<p class="mt-4 text-gray-600">Your response has been recorded.</p>
+					<a href="/" class="mt-6 inline-block rounded-md bg-green-x-light px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-green-x-dark">Back to Surveys</a>
+				</div>
+			</div>
+		</body>
+	}
+}
+
+templ header(user auth.User) {
+	<div class="relative bg-gradient-to-r from-green-x-dark to-green-x-light text-white pb-12 md:pb-16 pt-6 md:pt-10">
+		<div class="absolute inset-0" style="mask-image: linear-gradient(45deg, transparent, rgb(0,0,0,0.03) 20%)">
+			<div class="bg-no-repeat bg-cover w-full h-full" style="background-image: url(/assets/img/bg-pattern.svg)"></div>
+		</div>
+		<div class="max-w-7xl mx-auto px-4 md:px-6 xl:px-0 isolate">
+			<div class="flex justify-between items-center">
+				<div class="md:flex grow gap-10 items-center">
+					<img class="w-16 md:w-24" src="/assets/img/baobab-2.svg" alt="Maoni Logo"/>
+					<div class="flex flex-col grow mt-4 md:mt-0">
+						<div class="mt-5">
+							<h2 class="text-3xl md:text-4xl font-bold">Welcome to Maoni</h2>
+							<h2 class="text-xl md:text-2xl font-medium">Your Feedback matters.</h2>
+						</div>
+					</div>
+				</div>
+				<div class="flex items-center gap-4">
+					if user.IsAdmin {
+						<a href="/admin" class="px-4 py-2 border rounded hover:bg-white/20 transition-colors">Admin</a>
+					}
+					<a href="/logout" class="px-4 py-2 border rounded hover:bg-white/20 transition-colors">Logout</a>
+				</div>
+			</div>
+		</div>
+	</div>
+}
+
+templ surveyAlreadyCompletedPage(user auth.User) {
+	@layout.Html("Survey Completed") {
+		<body class="bg-gray-100">
+			@header(user)
+			<div class="container mx-auto p-4 sm:p-8 -mt-10">
+				<div class="bg-white p-6 rounded-lg shadow-lg text-center">
+					<h1 class="text-2xl font-bold text-gray-800">Already Completed</h1>
+					<p class="mt-4 text-gray-600">You have already submitted a response for this survey.</p>
+					<a href="/" class="mt-6 inline-block rounded-md bg-green-x-light px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-green-x-dark">Back to Surveys</a>
+				</div>
 			</div>
 		</body>
 	}
