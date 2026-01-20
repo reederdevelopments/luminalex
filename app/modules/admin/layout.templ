@@ -5,7 +5,7 @@ import "maoni/app/core/auth"
 
 templ adminLayout(user auth.User, pageTitle string, children templ.Component) {
 	<!DOCTYPE html>
-	<html lang="en" class="h-full bg-gray-100">
+	<html lang="en" class="h-full bg-green-x-dark">
 		<head>
 			<meta charset="UTF-8"/>
 			<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
@@ -16,11 +16,20 @@ templ adminLayout(user auth.User, pageTitle string, children templ.Component) {
 		</head>
 		<body class="h-full">
 			<div class="min-h-full">
-				<header class="bg-white shadow-sm">
+				<header class="bg-red-x-dark shadow-sm">
 					<div class="mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8">
 						<div class="flex items-center justify-between">
-							<h1 class="text-lg font-semibold leading-6 text-gray-900">Admin Dashboard</h1>
-							<a href="/" class="text-sm font-medium text-green-x-dark hover:text-green-x-dark">Back to Survey</a>
+							<div class="flex items-center gap-4">
+								<a href="/admin" class="flex items-center gap-2 text-white">
+									<img src="/assets/img/logo.webp" class="h-8 w-auto"/>
+									<span class="text-lg font-semibold leading-6">Maoni Admin</span>
+								</a>
+							</div>
+							<div class="flex items-center gap-4">
+								<span class="hidden sm:inline text-sm text-gray-200">Hello, { user.FirstName }</span>
+								<a href="/" class="text-sm font-medium text-white hover:text-gray-200">Back to Surveys</a>
+								<a href="/logout" class="text-sm font-medium text-gray-200 hover:text-white">Logout</a>
+							</div>
 						</div>
 					</div>
 				</header>

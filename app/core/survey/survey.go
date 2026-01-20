@@ -39,6 +39,7 @@ type Survey struct {
 	ID                       string     `json:"id" bigquery:"id"`
 	Name                     string     `json:"name" bigquery:"name"`
 	Description              string     `json:"description" bigquery:"description"`
+	Banner                   string     `json:"banner,omitempty" bigquery:"banner" schema:"Banner"`
 	Type                     string     `json:"type" bigquery:"type" schema:"Type"`
 	IsEnabled                bool       `json:"is_enabled" bigquery:"is_enabled"`
 	AllowMultipleSubmissions bool       `json:"allow_multiple_submissions" bigquery:"allow_multiple_submissions"`
@@ -47,7 +48,8 @@ type Survey struct {
 	Questions                []Question `json:"questions" schema:"questions" bigquery:"questions"`
 	GroupHeadings            []string   `json:"group_headings" bigquery:"group_headings" schema:"GroupHeadings"`
 	// This field is for display purposes only, not stored in BQ.
-	ResponseCount int `json:"response_count,omitempty" bigquery:"-"`
+	ResponseCount     int `json:"response_count,omitempty" bigquery:"-"`
+	AssignedUserCount int `json:"assigned_user_count,omitempty" bigquery:"-"`
 	// AssignmentID is used for special surveys to identify a unique assignment for a user.
 	AssignmentID string `json:"assignment_id,omitempty" bigquery:"-"`
 	// PrefillData holds variables for a special survey assignment.
@@ -97,4 +99,5 @@ type Store interface {
 	ListSpecialSurveyUsers(ctx context.Context, surveyID string) ([]SpecialSurveyUser, error)
 	GetSpecialSurveyAssignment(ctx context.Context, assignmentID string) (SpecialSurveyUser, bool, error)
 	UpdateSpecialSurveyUserResponse(ctx context.Context, assignmentID, responseID string) error
+	GetSpecialSurveyUserCount(ctx context.Context, surveyID string) (int, error)
 }

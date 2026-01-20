@@ -2,13 +2,13 @@ package admin
 
 import (
 	"encoding/csv"
-	"encoding/json"
 	"fmt"
 	"log"
 	"maoni/app/core/auth"
 	"maoni/app/core/mid"
 	"maoni/app/core/survey"
 	"maoni/app/core/web"
+	"maoni/app/modules/base"
 	"net/http"
 	"strconv"
 	"strings"
@@ -66,6 +66,7 @@ func InitModule(l *log.Logger, app *web.App, sessionStore auth.Store, surveyStor
 	app.Handle(http.MethodGet, "/admin/surveys/{id}/edit", m.editSurveyForm, adminMiddlewares...)
 	app.Handle(http.MethodPost, "/admin/surveys/{id}", m.updateSurvey, adminMiddlewares...)
 	app.Handle(http.MethodPost, "/admin/surveys/{id}/toggle", m.toggleSurveyStatus, adminMiddlewares...)
+	app.Handle(http.MethodPost, "/admin/surveys/preview", m.previewSurvey, adminMiddlewares...)
 
 	// Special Surveys User Management
 	app.Handle(http.MethodGet, "/admin/special/{id}", m.manageSpecialSurveyUsersLoader, adminMiddlewares...)
@@ -130,7 +131,45 @@ func (m module) specialSurveysLoader(w http.ResponseWriter, r *http.Request) err
 
 func (m module) resultsLoader(w http.ResponseWriter, r *http.Request) error {
 	user := auth.FromCtx(r.Context()).User
-	return adminPage(r, user, "Results", "results").Render(r.Context(), w)
+	ctx := r.Context()
+
+	// Filtering params
+	nameFilter := r.URL.Query().Get("name")
+	typeFilter := r.URL.Query().Get("type")
+
+	allSurveys, err := m.surveyStore.List(ctx, true) // Get all surveys
+	if err != nil {
+		return fmt.Errorf("failed to list surveys for results: %w", err)
+	}
+
+	var filteredSurveys []survey.Survey
+	for _, s := range allSurveys {
+		// Apply name filter
+		if nameFilter != "" && !strings.Contains(strings.ToLower(s.Name), strings.ToLower(nameFilter)) {
+			continue
+		}
+		// Apply type filter
+		if typeFilter != "" && s.Type != typeFilter && !(typeFilter == "normal" && s.Type == "") {
+			continue
+		}
+
+		if s.Type == survey.TypeSpecial {
+			assignedCount, err := m.surveyStore.GetSpecialSurveyUserCount(ctx, s.ID)
+			if err != nil {
+				m.l.Printf("could not get assigned user count for survey %s: %v", s.ID, err)
+			}
+			s.AssignedUserCount = assignedCount
+		}
+
+		filteredSurveys = append(filteredSurveys, s)
+	}
+
+	data := resultsPageData{
+		Surveys:    filteredSurveys,
+		NameFilter: nameFilter,
+		TypeFilter: typeFilter,
+	}
+	return adminPage(r, user, "Results", data).Render(ctx, w)
 }
 
 func (m module) addSurveyForm(w http.ResponseWriter, r *http.Request) error {
@@ -225,6 +264,17 @@ func (m module) updateSurvey(w http.ResponseWriter, r *http.Request) error {
 		http.Redirect(w, r, "/admin/surveys", http.StatusSeeOther)
 	}
 	return web.ErrHandled
+}
+
+func (m module) previewSurvey(w http.ResponseWriter, r *http.Request) error {
+	user := auth.FromCtx(r.Context()).User
+	s, err := parseSurveyForm(r)
+	if err != nil {
+		return web.NewRequestError(err, http.StatusBadRequest)
+	}
+	// The survey is not saved, so it doesn't have a real ID.
+	// We pass the parsed data directly to the survey page template.
+	return base.TakeSurveyPage(user, s, nil).Render(r.Context(), w)
 }
 
 func (m module) toggleSurveyStatus(w http.ResponseWriter, r *http.Request) error {
@@ -420,12 +470,6 @@ func parseSurveyForm(r *http.Request) (survey.Survey, error) {
 		return survey.Survey{}, err
 	}
 
-	log.Println("--- Post Form Values ---")
-	for k, v := range r.PostForm {
-		log.Printf("%s: %v\n", k, v)
-	}
-	log.Println("------------------------")
-
 	var s survey.Survey
 	decoder := schema.NewDecoder()
 	decoder.IgnoreUnknownKeys(true)
@@ -433,19 +477,15 @@ func parseSurveyForm(r *http.Request) (survey.Survey, error) {
 	// This will decode top-level fields like Name and Description.
 	// It might fail on Questions, but we'll parse them manually for robustness.
 	if err := decoder.Decode(&s, r.PostForm); err != nil {
-		log.Printf("Error decoding form with gorilla/schema (this may be ok if only questions failed): %v", err)
-		// We don't return an error here, as we are handling questions manually.
+		// We can ignore this error for now as we manually parse questions which often causes a schema mismatch
 	}
-
-	// For debugging, let's see what gorilla/schema managed to do.
-	initialDecodeJSON, _ := json.MarshalIndent(s, "", "  ")
-	log.Printf("--- Decoded Survey by gorilla/schema (before manual question parsing) ---\n%s", string(initialDecodeJSON))
 
 	// Manually set fields that might not be decoded correctly
 	s.Type = r.FormValue("Type")
 	if s.Type == "" {
 		s.Type = survey.TypeNormal
 	}
+	s.Banner = r.FormValue("Banner")
 
 	// Because unchecked checkboxes don't appear in form data, gorilla/schema won't update
 	// a field from true to false on an edit. We must manually handle them based on form value presence.
@@ -497,9 +537,6 @@ func parseSurveyForm(r *http.Request) (survey.Survey, error) {
 		validQuestions = append(validQuestions, q)
 	}
 	s.Questions = validQuestions
-
-	finalJsonData, _ := json.MarshalIndent(s, "", "  ")
-	log.Printf("--- Final Parsed Survey ---\n%s", string(finalJsonData))
 
 	return s, nil
 }

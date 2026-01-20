@@ -82,7 +82,7 @@ func (m module) viewSurveyHandler(w http.ResponseWriter, r *http.Request) error 
 		}
 	}
 
-	return takeSurveyPage(user, s, prefills).Render(ctx, w)
+	return TakeSurveyPage(user, s, prefills).Render(ctx, w)
 }
 
 func (m module) submitSurveyHandler(w http.ResponseWriter, r *http.Request) error {
