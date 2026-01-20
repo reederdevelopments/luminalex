@@ -41,12 +41,12 @@ steps:
     args:
       - "build"
       - "-t"
-      - "${_REGION}-docker.pkg.dev/${_PROJECT_ID}/${_REPO}/${_IMAGE}-${_ENV}:$COMMIT_SHA"
+      - "${_REGION}-docker.pkg.dev/${_PROJECT_ID}/${_REPO}/${_IMAGE}:$COMMIT_SHA"
       - "."
 
 # Step 6: Push to Artifact Registry
 images:
-  - "${_REGION}-docker.pkg.dev/${_PROJECT_ID}/${_REPO}/${_IMAGE}-${_ENV}:$COMMIT_SHA"
+  - "${_REGION}-docker.pkg.dev/${_PROJECT_ID}/${_REPO}/${_IMAGE}:$COMMIT_SHA"
 
 options:
   logging: CLOUD_LOGGING_ONLY
