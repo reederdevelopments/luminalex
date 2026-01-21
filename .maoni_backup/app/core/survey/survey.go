@@ -61,8 +61,8 @@ type Survey struct {
 	Questions                []Question `json:"questions" schema:"questions" bigquery:"questions" firestore:"questions"`
 	GroupHeadings            []string   `json:"group_headings" bigquery:"group_headings" schema:"GroupHeadings" firestore:"group_headings"`
 	// This field is for display purposes only, not stored in BQ.
-	ResponseCount     int `json:"response_count,omitempty" bigquery:"-" firestore:"response_count,omitempty"`
-	AssignedUserCount int `json:"assigned_user_count,omitempty" bigquery:"-" firestore:"assigned_user_count,omitempty"`
+	ResponseCount     int `json:"response_count,omitempty" bigquery:"-" firestore:"-"`
+	AssignedUserCount int `json:"assigned_user_count,omitempty" bigquery:"-" firestore:"-"`
 	// AssignmentID is used for special surveys to identify a unique assignment for a user.
 	AssignmentID string `json:"assignment_id,omitempty" bigquery:"-" firestore:"-"`
 	// PrefillData holds variables for a special survey assignment.

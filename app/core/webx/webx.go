@@ -78,6 +78,9 @@ func StaticHandler(fs fs.FS, l *log.Logger, isDev bool) http.HandlerFunc {
 
 		// In development, we don't cache to allow for hot-reloading.
 		if isDev {
+			w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
+			w.Header().Set("Pragma", "no-cache")
+			w.Header().Set("Expires", "0")
 			fileServer.ServeHTTP(w, r)
 			return
 		}
@@ -105,13 +108,13 @@ func StaticHandler(fs fs.FS, l *log.Logger, isDev bool) http.HandlerFunc {
 			}
 		}
 
-		if etag == r.Header.Get("if-none-match") {
+		if etag == r.Header.Get("If-None-Match") {
 			w.WriteHeader(http.StatusNotModified)
 			return
 		}
 
-		w.Header().Set("cache-control", "no-cache")
-		w.Header().Set("etag", etag)
+		w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+		w.Header().Set("ETag", etag)
 		fileServer.ServeHTTP(w, r)
 	}
 }

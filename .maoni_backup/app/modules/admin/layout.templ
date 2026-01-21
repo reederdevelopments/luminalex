@@ -39,6 +39,8 @@ templ adminLayout(user auth.User, pageTitle string, children templ.Component) {
 					</div>
 				</main>
 			</div>
+			<!-- This script is for the HTMX-based form, which seems to be the primary implementation -->
+			<script src="/assets/scripts/survey_form.js" type="module"></script>
 			<!-- This script is for the van.js based form. Only include it on pages that actually use it. -->
 			<!-- <script src="/assets/scripts/admin_survey_form.js" type="module"></script> -->
 		</body>

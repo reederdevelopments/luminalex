@@ -154,6 +154,14 @@ func (m module) resultsLoader(w http.ResponseWriter, r *http.Request) error {
 			continue
 		}
 
+		if s.Type == survey.TypeSpecial {
+			assignedCount, err := m.surveyStore.GetSpecialSurveyUserCount(ctx, s.ID)
+			if err != nil {
+				m.l.Printf("could not get assigned user count for survey %s: %v", s.ID, err)
+			}
+			s.AssignedUserCount = assignedCount
+		}
+
 		filteredSurveys = append(filteredSurveys, s)
 	}
 

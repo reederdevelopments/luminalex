@@ -185,20 +185,35 @@ func (s *SurveyStore) Get(ctx context.Context, id string) (survey.Survey, error)
 	return su, nil
 }
 
+// addResponseCounts is a helper to decouple BQ count queries from Firestore reads
+func (s *SurveyStore) addResponseCounts(ctx context.Context, surveys []survey.Survey) ([]survey.Survey, error) {
+	// Create a copy to avoid modifying the cached slice
+	surveysCopy := make([]survey.Survey, len(surveys))
+	copy(surveysCopy, surveys)
+
+	for i := range surveysCopy {
+		count, err := s.GetResponseCount(ctx, surveysCopy[i].ID)
+		if err != nil {
+			// Log the error but don't fail the whole list
+			log.Printf("could not get response count for survey %s: %v", surveysCopy[i].ID, err)
+		}
+		surveysCopy[i].ResponseCount = count
+	}
+	return surveysCopy, nil
+}
+
 func (s *SurveyStore) List(ctx context.Context, showInactive bool) ([]survey.Survey, error) {
 	// Check list cache first
 	s.mu.RLock()
 	if showInactive && s.listCacheAll != nil && time.Now().Before(s.listCacheAllExpiresAt) {
-		surveysCopy := make([]survey.Survey, len(s.listCacheAll))
-		copy(surveysCopy, s.listCacheAll)
+		cachedList := s.listCacheAll
 		s.mu.RUnlock()
-		return surveysCopy, nil
+		return s.addResponseCounts(ctx, cachedList)
 	}
 	if !showInactive && s.listCache != nil && time.Now().Before(s.listCacheExpiresAt) {
-		surveysCopy := make([]survey.Survey, len(s.listCache))
-		copy(surveysCopy, s.listCache)
+		cachedList := s.listCache
 		s.mu.RUnlock()
-		return surveysCopy, nil
+		return s.addResponseCounts(ctx, cachedList)
 	}
 	s.mu.RUnlock()
 
@@ -246,7 +261,7 @@ func (s *SurveyStore) List(ctx context.Context, showInactive bool) ([]survey.Sur
 	}
 	s.mu.Unlock()
 
-	return filteredSurveys, nil
+	return s.addResponseCounts(ctx, filteredSurveys)
 }
 
 // ListForUser retrieves all surveys a user is eligible to take.
@@ -317,19 +332,6 @@ func (s *SurveyStore) SaveResponse(ctx context.Context, r survey.Response) error
 	if err := inserter.Put(ctx, r); err != nil {
 		return fmt.Errorf("failed to insert response: %w", err)
 	}
-
-	// Increment the response count in Firestore.
-	surveyRef := s.fs.Collection(collection.Surveys).Doc(r.SurveyID)
-	_, err := surveyRef.Update(ctx, []firestore.Update{
-		{Path: "response_count", Value: firestore.Increment(1)},
-	})
-	if err != nil {
-		// The response is in BQ but the count is not updated. This is a state inconsistency.
-		// Log a warning. A more robust system might have a background job to reconcile counts.
-		log.Printf("WARNING: failed to increment response count for survey %s: %v", r.SurveyID, err)
-	}
-	s.invalidateCache(r.SurveyID) // Invalidate cache to reflect new count
-
 	return nil
 }
 
@@ -386,18 +388,6 @@ func (s *SurveyStore) AddSpecialSurveyUsers(ctx context.Context, users []survey.
 	if len(users) == 0 {
 		return nil
 	}
-
-	// Increment the assigned user count in Firestore.
-	surveyID := users[0].SurveyID
-	surveyRef := s.fs.Collection(collection.Surveys).Doc(surveyID)
-	_, err := surveyRef.Update(ctx, []firestore.Update{
-		{Path: "assigned_user_count", Value: firestore.Increment(len(users))},
-	})
-	if err != nil {
-		// Log and continue, as writing the user assignments is the primary goal.
-		log.Printf("WARNING: failed to increment assigned user count for survey %s: %v", surveyID, err)
-	}
-	s.invalidateCache(surveyID)
 
 	// 1. Asynchronously stream to BigQuery for analytics.
 	go func() {
