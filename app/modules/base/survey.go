@@ -61,7 +61,7 @@ func (m module) viewSurveyHandler(w http.ResponseWriter, r *http.Request) error 
 		if !found || specialData.UserEmail != user.Email {
 			return web.NewRequestError(fmt.Errorf("you are not assigned to this survey"), http.StatusForbidden)
 		}
-		if specialData.ResponseID.Valid {
+		if specialData.ResponseID != "" {
 			return surveyAlreadyCompletedPage(user).Render(ctx, w)
 		}
 

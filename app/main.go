@@ -128,7 +128,7 @@ func run(l *log.Logger) error {
 	if err := bq.EnsureSchema(ctx, bqClient, cfg.BqDatasetID); err != nil {
 		return fmt.Errorf("failed to ensure bigquery schema: %w", err)
 	}
-	surveyStore := bq.NewSurveyStore(bqClient, cfg.BqDatasetID)
+	surveyStore := bq.NewSurveyStore(bqClient, fsDb, cfg.BqDatasetID)
 
 	// --- Authentication ---
 	authService := auth.NewService(cfg.SessionSecret)

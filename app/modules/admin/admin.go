@@ -2,6 +2,7 @@ package admin
 
 import (
 	"encoding/csv"
+	"encoding/json"
 	"fmt"
 	"log"
 	"maoni/app/core/auth"
@@ -177,6 +178,7 @@ func (m module) addSurveyForm(w http.ResponseWriter, r *http.Request) error {
 	s := survey.Survey{
 		ID:            uuid.NewString(),
 		Type:          survey.TypeNormal,
+		IsEnabled:     true,
 		Questions:     []survey.Question{},
 		GroupHeadings: []string{""}, // Start with one empty heading
 	}
@@ -279,16 +281,37 @@ func (m module) previewSurvey(w http.ResponseWriter, r *http.Request) error {
 
 func (m module) toggleSurveyStatus(w http.ResponseWriter, r *http.Request) error {
 	id := chi.URLParam(r, "id")
-	s, err := m.surveyStore.Get(r.Context(), id)
+	ctx := r.Context()
+
+	s, err := m.surveyStore.Get(ctx, id)
 	if err != nil {
 		return web.NewRequestError(fmt.Errorf("survey not found"), http.StatusNotFound)
 	}
 
-	s.IsEnabled = !s.IsEnabled
+	// Support simple POST toggle for existing form, and JSON for new JS client
+	if r.Header.Get("Content-Type") == "application/json" {
+		var payload struct {
+			IsEnabled bool `json:"isEnabled"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+			return web.NewRequestError(fmt.Errorf("invalid request body: %w", err), http.StatusBadRequest)
+		}
+		s.IsEnabled = payload.IsEnabled
+	} else {
+		// Fallback to simple toggle for form-based submissions
+		s.IsEnabled = !s.IsEnabled
+	}
+
 	s.UpdatedAt = time.Now()
 
-	if err := m.surveyStore.Update(r.Context(), s); err != nil {
+	if err := m.surveyStore.Update(ctx, s); err != nil {
 		return fmt.Errorf("failed to toggle survey status: %w", err)
+	}
+
+	// For JS client, return OK. For form, redirect.
+	if r.Header.Get("Content-Type") == "application/json" {
+		w.WriteHeader(http.StatusOK)
+		return nil
 	}
 
 	http.Redirect(w, r, r.Header.Get("Referer"), http.StatusSeeOther)

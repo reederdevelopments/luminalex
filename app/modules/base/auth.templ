@@ -1,38 +1,13 @@
+
 package base
 
 import "maoni/app/core/ui/layout"
 
 templ signinPage(hasFlash bool, flashMsg string) {
 	@layout.HtmlFullPage("Maoni Login") {
-		<div class="relative w-full h-full">
-			<div
-				class="z-50 block fixed inset-x-4 lg:top-0 lg:left-10 text-white max-w-xl"
-			>
+		<div class="relative w-full h-full flex items-center justify-center p-4">
+			<div class="z-50 block text-gray-800 max-w-xl w-full bg-white/75 backdrop-blur-sm p-8 rounded-lg shadow-lg">
 				@signinForm(hasFlash, flashMsg)
-			</div>
-			<div class="hidden md:block w-full h-full">
-				<img
-					class="h-full w-full object-cover"
-					src="https://hsrc.ac.za/wp-content/uploads/2024/09/Article-1-Image-2-scaled.jpg"
-				/>
-			</div>
-			<div class="absolute lg:-skew-x-[45deg] lg:-translate-x-2/3 bg-gradient-to-r from-red-x-dark to-red-x-light inset-x-0 lg:left-0 inset-y-0 w-full text-white px-8 overflow-clip">
-				<div
-					class="absolute inset-0 lg:skew-x-[45deg] lg:translate-x-1/2"
-					style="mask-image: linear-gradient(45deg, transparent, rgb(0,0,0,0.03) 20%)"
-				>
-					<div
-						class="bg-no-repeat bg-cover w-full h-full"
-						style="background-image: url(/assets/img/bg-pattern.svg)"
-					></div>
-				</div>
-			</div>
-			<div
-				class="hidden lg:block absolute top-10 right-10 w-32"
-			>
-				<img
-					src="/assets/img/logo.webp"
-				/>
 			</div>
 		</div>
 		<script type="module" src="/assets/scripts/auth.js"></script>
@@ -40,23 +15,23 @@ templ signinPage(hasFlash bool, flashMsg string) {
 }
 
 templ signinForm(hasFlash bool, flashMsg string) {
-	<div class="md:flex gap-10 items-center mt-20">
+	<div class="md:flex gap-10 items-center">
 		<img class="w-10 md:w-20" src="/assets/img/baobab-2.svg"/>
 		<div class="flex flex-col justify-between mt-4 md:mt-0">
-			<h1 class="text-2xl md:text-3xl font-bold">Welcome to Maoni</h1>
-			<p class="mt-4 md:text-lg">Your feedback makes a difference, and a difference makes life easy!.</p>
+			<h1 class="text-2xl md:text-3xl font-bold text-gray-900">Welcome to Maoni</h1>
+			<p class="mt-4 md:text-lg text-gray-700">Your feedback makes a difference, and a difference makes life easy!.</p>
 		</div>
 	</div>
-	<div class="lg:w-96 mt-20 relative">
-		<h2 class="mt-8 text-xl font-medium leading-9 tracking-tight">Sign in to your account</h2>
+	<div class="lg:w-96 mt-10 relative">
+		<h2 class="mt-8 text-xl font-medium leading-9 tracking-tight text-gray-900">Sign in to your account</h2>
 		<div class="mt-6 gap-4 w-full">
-			<button id="signin-btn" class="z-50 relative flex w-full items-center justify-center gap-3 rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 hover:bg-gray-50 focus-visible:ring-transparent">
+			<button id="signin-btn" class="z-50 relative flex w-full items-center justify-center gap-3 rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm hover:bg-gray-50 focus-visible:ring-transparent">
 				<svg class="h-5 w-5" viewBox="0 0 24 24" aria-hidden="true"><path d="M12.0003 4.75C13.7703 4.75 15.3553 5.36002 16.6053 6.54998L20.0303 3.125C17.9502 1.19 15.2353 0 12.0003 0C7.31028 0 3.25527 2.69 1.28027 6.60998L5.27028 9.70498C6.21525 6.86002 8.87028 4.75 12.0003 4.75Z" fill="#EA4335"></path><path d="M23.49 12.275C23.49 11.49 23.415 10.73 23.3 10H12V14.51H18.47C18.18 15.99 17.34 17.25 16.08 18.1L19.945 21.1C22.2 19.01 23.49 15.92 23.49 12.275Z" fill="#4285F4"></path><path d="M5.26498 14.2949C5.02498 13.5699 4.88501 12.7999 4.88501 11.9999C4.88501 11.1999 5.01998 10.4299 5.26498 9.7049L1.275 6.60986C0.46 8.22986 0 10.0599 0 11.9999C0 13.9399 0.46 15.7699 1.28 17.3899L5.26498 14.2949Z" fill="#FBBC05"></path><path d="M12.0004 24.0001C15.2404 24.0001 17.9654 22.935 19.9454 21.095L16.0804 18.095C15.0054 18.82 13.6204 19.245 12.0004 19.245C8.8704 19.245 6.21537 17.135 5.2654 14.29L1.27539 17.385C3.25539 21.31 7.3104 24.0001 12.0004 24.0001Z" fill="#34A853"></path></svg>
 				<span class="text-sm font-semibold leading-6">Google</span>
 			</button>
 		</div>
 		if hasFlash {
-			<div class="mt-10 text-red-800 bg-white rounded p-4">
+			<div class="mt-10 text-red-800 bg-red-100 rounded p-4">
 				{ flashMsg }
 			</div>
 		}

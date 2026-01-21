@@ -13,7 +13,7 @@ type Tab struct {
 }
 
 templ Tabs(r *http.Request, tabs []Tab) {
-	<div>
+	<div class="bg-white p-6 shadow sm:rounded-lg">
 		<div>
 			<!-- Mobile Tabs -->
 			<div class="sm:hidden">
@@ -21,7 +21,7 @@ templ Tabs(r *http.Request, tabs []Tab) {
 				<select
 					id="tabs"
 					name="tabs"
-					class="block w-full rounded-md border-gray-300 py-2 pl-3 pr-10 text-base focus:border-gray-500 focus:outline-none focus:ring-gray-500 sm:text-sm"
+					class="block w-full rounded-md border-gray-300 py-2 pl-3 pr-10 text-base focus:border-green-x-dark focus:outline-none focus:ring-green-x-dark sm:text-sm"
 					onchange="window.location.href = this.options[this.selectedIndex].dataset.href"
 				>
 					for _, t := range tabs {
@@ -41,7 +41,7 @@ templ Tabs(r *http.Request, tabs []Tab) {
 							if t.Active {
 								<a
 									href={ templ.URL(t.Href) }
-									class="border-white text-white whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium"
+									class="border-green-x-light text-green-x-dark whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium"
 									aria-current="page"
 								>
 									{ t.Title }
@@ -49,7 +49,7 @@ templ Tabs(r *http.Request, tabs []Tab) {
 							} else {
 								<a
 									href={ templ.URL(t.Href) }
-									class="border-transparent text-gray-200 hover:border-white hover:text-white whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium"
+									class="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium"
 								>
 									{ t.Title }
 								</a>
@@ -59,7 +59,7 @@ templ Tabs(r *http.Request, tabs []Tab) {
 				</div>
 			</div>
 		</div>
-		<div class="mt-6 bg-white shadow sm:rounded-lg p-6">
+		<div class="mt-6">
 			{ children... }
 		</div>
 	</div>

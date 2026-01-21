@@ -100,7 +100,7 @@ templ specialSurveyDetails(s survey.Survey, users []survey.SpecialSurveyUser) {
 										<td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">{ u.Variable4 }</td>
 										<td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">{ u.Variable5 }</td>
 										<td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-											if u.ResponseID.Valid {
+											if u.ResponseID != "" {
 												<span class="inline-flex items-center rounded-full bg-green-x-light px-2 py-1 text-xs font-medium text-white">Submitted</span>
 											} else {
 												<span class="inline-flex items-center rounded-full bg-gray-200 px-2 py-1 text-xs font-medium text-gray-700">Pending</span>

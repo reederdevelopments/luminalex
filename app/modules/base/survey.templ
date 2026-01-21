@@ -34,7 +34,7 @@ func hasQuestionsInGroup(questions []survey.Question, groupIndex int) bool {
 templ BaseLayout(user auth.User, title string) {
 	@layout.Html(title) {
 		<div class="min-h-full">
-			<header class="bg-red-x-dark shadow-sm">
+			<header class="header-background shadow-sm">
 				<div class="mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8">
 					<div class="flex items-center justify-between">
 						<div class="flex items-center gap-4">
@@ -67,8 +67,8 @@ templ surveyListPage(user auth.User, surveys []survey.Survey) {
 		<div>
 			<div class="sm:flex sm:items-center">
 				<div class="sm:flex-auto">
-					<h1 class="text-base font-semibold leading-6 text-white">Available Surveys</h1>
-					<p class="mt-2 text-sm text-white">A list of all surveys available for you to complete.</p>
+					<h1 class="text-base font-semibold leading-6 text-gray-900">Available Surveys</h1>
+					<p class="mt-2 text-sm text-gray-700">A list of all surveys available for you to complete.</p>
 				</div>
 			</div>
 			<div class="mt-8 flow-root">
@@ -76,7 +76,7 @@ templ surveyListPage(user auth.User, surveys []survey.Survey) {
 					<div class="inline-block min-w-full py-2 align-middle sm:px-6 lg:px-8">
 						if len(surveys) == 0 {
 							<div class="flex h-96 items-center justify-center rounded-lg border-4 border-dashed border-gray-200 p-4">
-								<p class="text-center text-white">No surveys available for you at the moment.</p>
+								<p class="text-center text-gray-500">No surveys available for you at the moment.</p>
 							</div>
 						} else {
 							<ul role="list" class="divide-y divide-gray-200 bg-white shadow-sm ring-1 ring-gray-900/5 sm:rounded-xl">

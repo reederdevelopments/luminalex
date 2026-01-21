@@ -113,7 +113,6 @@ func ensureSpecialSurveysTable(ctx context.Context, dataset *bigquery.Dataset) e
 		{Name: "variable_3", Type: bigquery.StringFieldType},
 		{Name: "variable_4", Type: bigquery.StringFieldType},
 		{Name: "variable_5", Type: bigquery.StringFieldType},
-		{Name: "response_id", Type: bigquery.StringFieldType},
 	}
 
 	if err := createOrUpdateTable(ctx, table, schema); err != nil {

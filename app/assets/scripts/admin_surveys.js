@@ -1,3 +1,4 @@
+
 import van from "https://cdn.jsdelivr.net/gh/vanjs-org/van/public/van-1.5.1.min.js";
 
 const container = document.getElementById("surveys-container");
@@ -7,32 +8,34 @@ if (container) {
 
     const { div, table, thead, tbody, tr, th, td, a, button, input, span } = van.tags;
 
-    const COOKIE = "MAONI_AUTH";
-    let authToken = "";
-    document.cookie.split(';').forEach(cookie => {
-        const parts = cookie.split('=');
-        if (parts[0].trim() === COOKIE) {
-            authToken = parts[1];
-        }
-    });
-
     async function toggleSurveyStatus(surveyID, checkbox) {
         const isEnabled = checkbox.checked;
         checkbox.disabled = true;
 
-        const response = await fetch(`/api/admin/surveys/${surveyID}/toggle`, {
+        // The Go handler for toggling has been updated to accept a JSON body.
+        // The URL was also incorrect (removed /api prefix).
+        const response = await fetch(`/admin/surveys/${surveyID}/toggle`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'Auth': authToken,
             },
             body: JSON.stringify({ isEnabled: isEnabled }),
         });
+
+        if (response.status === 401) {
+            alert('Your session has expired. Please log in again.');
+            window.location.reload();
+            return;
+        }
 
         if (!response.ok) {
             alert('Failed to update survey status.');
             checkbox.checked = !isEnabled; // Revert checkbox on failure
         }
+        
+        // No need to manually update state if the page reloads or if we trust the change.
+        // For a better UX without full page reload, you could update the survey in the `surveys` state.
+        
         checkbox.disabled = false;
     }
 

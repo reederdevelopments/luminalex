@@ -25,35 +25,48 @@ const (
 
 // Question represents a single question in a survey.
 type Question struct {
-	ID              string   `json:"id" bigquery:"id" schema:"ID"`
-	Text            string   `json:"text" bigquery:"text" schema:"Text"`
-	Type            string   `json:"type" bigquery:"type" schema:"Type"`
-	Options         []string `json:"options" bigquery:"options" schema:"Options"`
-	IsRequired      bool     `json:"is_required" bigquery:"is_required" schema:"IsRequired"`
-	GroupNumber     int      `json:"group_number" bigquery:"group_number" schema:"GroupNumber"`
-	PrefillVariable string   `json:"prefill_variable" bigquery:"prefill_variable" schema:"PrefillVariable"`
+	ID              string   `json:"id" bigquery:"id" schema:"ID" firestore:"id"`
+	Text            string   `json:"text" bigquery:"text" schema:"Text" firestore:"text"`
+	Type            string   `json:"type" bigquery:"type" schema:"Type" firestore:"type"`
+	Options         []string `json:"options" bigquery:"options" schema:"Options" firestore:"options"`
+	IsRequired      bool     `json:"is_required" bigquery:"is_required" schema:"IsRequired" firestore:"is_required"`
+	GroupNumber     int      `json:"group_number" bigquery:"group_number" schema:"GroupNumber" firestore:"group_number"`
+	PrefillVariable string   `json:"prefill_variable" bigquery:"prefill_variable" schema:"PrefillVariable" firestore:"prefill_variable"`
+}
+
+// Saveable satisfies the bigquery.ValueSaver interface for the Question struct.
+func (q *Question) Save() (map[string]bigquery.Value, string, error) {
+	return map[string]bigquery.Value{
+		"id":               q.ID,
+		"text":             q.Text,
+		"type":             q.Type,
+		"options":          q.Options,
+		"is_required":      q.IsRequired,
+		"group_number":     q.GroupNumber,
+		"prefill_variable": q.PrefillVariable,
+	}, "", nil
 }
 
 // Survey represents a survey with its questions.
 type Survey struct {
-	ID                       string     `json:"id" bigquery:"id"`
-	Name                     string     `json:"name" bigquery:"name"`
-	Description              string     `json:"description" bigquery:"description"`
-	Banner                   string     `json:"banner,omitempty" bigquery:"banner" schema:"Banner"`
-	Type                     string     `json:"type" bigquery:"type" schema:"Type"`
-	IsEnabled                bool       `json:"is_enabled" bigquery:"is_enabled"`
-	AllowMultipleSubmissions bool       `json:"allow_multiple_submissions" bigquery:"allow_multiple_submissions"`
-	CreatedAt                time.Time  `json:"created_at" schema:"-" bigquery:"created_at"`
-	UpdatedAt                time.Time  `json:"updated_at" schema:"-" bigquery:"updated_at"`
-	Questions                []Question `json:"questions" schema:"questions" bigquery:"questions"`
-	GroupHeadings            []string   `json:"group_headings" bigquery:"group_headings" schema:"GroupHeadings"`
+	ID                       string     `json:"id" bigquery:"id" firestore:"id"`
+	Name                     string     `json:"name" bigquery:"name" firestore:"name"`
+	Description              string     `json:"description" bigquery:"description" firestore:"description"`
+	Banner                   string     `json:"banner,omitempty" bigquery:"banner" schema:"Banner" firestore:"banner,omitempty"`
+	Type                     string     `json:"type" bigquery:"type" schema:"Type" firestore:"type"`
+	IsEnabled                bool       `json:"is_enabled" bigquery:"is_enabled" firestore:"is_enabled"`
+	AllowMultipleSubmissions bool       `json:"allow_multiple_submissions" bigquery:"allow_multiple_submissions" firestore:"allow_multiple_submissions"`
+	CreatedAt                time.Time  `json:"created_at" schema:"-" bigquery:"created_at" firestore:"created_at"`
+	UpdatedAt                time.Time  `json:"updated_at" schema:"-" bigquery:"updated_at" firestore:"updated_at"`
+	Questions                []Question `json:"questions" schema:"questions" bigquery:"questions" firestore:"questions"`
+	GroupHeadings            []string   `json:"group_headings" bigquery:"group_headings" schema:"GroupHeadings" firestore:"group_headings"`
 	// This field is for display purposes only, not stored in BQ.
-	ResponseCount     int `json:"response_count,omitempty" bigquery:"-"`
-	AssignedUserCount int `json:"assigned_user_count,omitempty" bigquery:"-"`
+	ResponseCount     int `json:"response_count,omitempty" bigquery:"-" firestore:"-"`
+	AssignedUserCount int `json:"assigned_user_count,omitempty" bigquery:"-" firestore:"-"`
 	// AssignmentID is used for special surveys to identify a unique assignment for a user.
-	AssignmentID string `json:"assignment_id,omitempty" bigquery:"-"`
+	AssignmentID string `json:"assignment_id,omitempty" bigquery:"-" firestore:"-"`
 	// PrefillData holds variables for a special survey assignment.
-	PrefillData map[string]string `json:"prefill_data,omitempty" bigquery:"-"`
+	PrefillData map[string]string `json:"prefill_data,omitempty" bigquery:"-" firestore:"-"`
 }
 
 // Answer represents a user's answer to a single question.
@@ -73,15 +86,15 @@ type Response struct {
 
 // SpecialSurveyUser represents a user assigned to a special survey with prefill data.
 type SpecialSurveyUser struct {
-	AssignmentID string              `bigquery:"assignment_id" json:"assignment_id"`
-	SurveyID     string              `bigquery:"survey_id" json:"survey_id"`
-	UserEmail    string              `bigquery:"user_email" json:"user_email"`
-	Variable1    string              `bigquery:"variable_1" json:"variable_1"`
-	Variable2    string              `bigquery:"variable_2" json:"variable_2"`
-	Variable3    string              `bigquery:"variable_3" json:"variable_3"`
-	Variable4    string              `bigquery:"variable_4" json:"variable_4"`
-	Variable5    string              `bigquery:"variable_5" json:"variable_5"`
-	ResponseID   bigquery.NullString `bigquery:"response_id" json:"response_id"`
+	AssignmentID string `json:"assignment_id" firestore:"assignment_id"`
+	SurveyID     string `json:"survey_id" firestore:"survey_id"`
+	UserEmail    string `json:"user_email" firestore:"user_email"`
+	Variable1    string `json:"variable_1" firestore:"variable_1,omitempty"`
+	Variable2    string `json:"variable_2" firestore:"variable_2,omitempty"`
+	Variable3    string `json:"variable_3" firestore:"variable_3,omitempty"`
+	Variable4    string `json:"variable_4" firestore:"variable_4,omitempty"`
+	Variable5    string `json:"variable_5" firestore:"variable_5,omitempty"`
+	ResponseID   string `json:"response_id" firestore:"response_id"`
 }
 
 type Store interface {
