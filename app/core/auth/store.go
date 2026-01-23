@@ -29,4 +29,5 @@ type Store interface {
 	HttpCreate(ctx context.Context, now time.Time, u goth.User, w http.ResponseWriter, r *http.Request) error
 	HttpInvalidate(ctx context.Context, now time.Time, w http.ResponseWriter, r *http.Request) error
 	Mid(h web.Handler) web.Handler
+	GetUserByEmail(ctx context.Context, email string) (User, error)
 }

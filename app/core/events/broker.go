@@ -1,7 +1,6 @@
 package events
 
 import (
-	"log"
 	"sync"
 )
 
@@ -45,13 +44,11 @@ func (b *Broker) run() {
 			b.mu.Lock()
 			b.clients[client] = struct{}{}
 			b.mu.Unlock()
-			log.Println("SSE client registered")
 		case client := <-b.unregister:
 			b.mu.Lock()
 			if _, ok := b.clients[client]; ok {
 				delete(b.clients, client)
 				close(client)
-				log.Println("SSE client unregistered")
 			}
 			b.mu.Unlock()
 		case event := <-b.notifier:

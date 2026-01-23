@@ -3,11 +3,13 @@ package main
 import (
 	"context"
 	"embed"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"log"
 	"maoni/app/core/auth"
 	"maoni/app/core/bq"
+	"maoni/app/core/email"
 	"maoni/app/core/events"
 	"maoni/app/core/fire"
 	"maoni/app/core/mid"
@@ -53,6 +55,7 @@ func run(l *log.Logger) error {
 		ServiceAcc      string `conf:",mask"`
 		FsDbID          string `conf:"default:(default)"`
 		BqDatasetID     string `conf:"default:MAONI"`
+		ImpersonateUser string `conf:"default:maoni@unifi.credit"`
 	}{}
 
 	// Initial parse to capture command-line flags like --dev
@@ -112,10 +115,31 @@ func run(l *log.Logger) error {
 	if cfg.SessionSecret == "" {
 		return errors.New("required field SessionSecret is missing value")
 	}
+	if !cfg.Dev && cfg.ServiceAcc == "" {
+		return errors.New("required field ServiceAcc is missing value for non-dev environment")
+	}
 
 	// --- Services ---
 	eventBroker := events.NewBroker()
 	ctx := context.Background()
+
+	var emailSender email.Sender
+	if cfg.Dev {
+		emailSender = email.NewLogSender(l)
+		l.Println("Using LogSender for emails in dev mode.")
+	} else {
+		serviceAccountJSON, err := base64.StdEncoding.DecodeString(cfg.ServiceAcc)
+		if err != nil {
+			return fmt.Errorf("failed to decode service account json: %w", err)
+		}
+		sender, err := email.NewGmailSender(l, serviceAccountJSON, cfg.ImpersonateUser)
+		if err != nil {
+			return fmt.Errorf("failed to create gmail sender: %w", err)
+		}
+		emailSender = sender
+		l.Println("Using GmailSender for emails.")
+	}
+
 	fsDb, err := fire.Store(ctx, cfg.GoogleProjectID, cfg.FsDbID)
 	if err != nil {
 		return fmt.Errorf("failed to connect to firestore: %w", err)
@@ -199,7 +223,7 @@ func run(l *log.Logger) error {
 
 	// Initialize modules/routes
 	base.InitModule(l, app, sessionStore, surveyStore, eventBroker)
-	admin.InitModule(l, app, sessionStore, surveyStore)
+	admin.InitModule(l, app, sessionStore, surveyStore, emailSender)
 
 	// Start Server
 	host := fmt.Sprintf("0.0.0.0:%d", cfg.Port)

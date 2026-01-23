@@ -1,12 +1,14 @@
 package admin
 
 import (
+	"context"
 	"encoding/csv"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
 	"maoni/app/core/auth"
+	"maoni/app/core/email"
 	"maoni/app/core/mid"
 	"maoni/app/core/survey"
 	"maoni/app/core/web"
@@ -25,6 +27,7 @@ type module struct {
 	l            *log.Logger
 	sessionStore auth.Store
 	surveyStore  survey.Store
+	emailSender  email.Sender
 }
 
 func stdMid(l *log.Logger, additionalMid ...web.Middleware) []web.Middleware {
@@ -49,11 +52,12 @@ func (m module) adminOnly(h web.Handler) web.Handler {
 	}
 }
 
-func InitModule(l *log.Logger, app *web.App, sessionStore auth.Store, surveyStore survey.Store) {
+func InitModule(l *log.Logger, app *web.App, sessionStore auth.Store, surveyStore survey.Store, emailSender email.Sender) {
 	m := module{
 		l:            l,
 		sessionStore: sessionStore,
 		surveyStore:  surveyStore,
+		emailSender:  emailSender,
 	}
 
 	adminMiddlewares := stdMid(l, sessionStore.Mid, m.adminOnly)
@@ -82,6 +86,10 @@ func InitModule(l *log.Logger, app *web.App, sessionStore auth.Store, surveyStor
 	// Category Management
 	app.Handle(http.MethodPost, "/admin/config/categories", m.createCategory, adminMiddlewares...)
 	app.Handle(http.MethodDelete, "/admin/config/categories/{id}", m.deleteCategory, adminMiddlewares...)
+
+	// Email endpoints
+	app.Handle(http.MethodPost, "/admin/surveys/{id}/email/create", m.sendCreateEmail, adminMiddlewares...)
+	app.Handle(http.MethodPost, "/admin/surveys/{id}/email/reminder", m.sendReminderEmail, adminMiddlewares...)
 }
 
 func (m module) adminRedirect(w http.ResponseWriter, r *http.Request) error {
@@ -513,6 +521,97 @@ func (m module) deleteCategory(w http.ResponseWriter, r *http.Request) error {
 		return fmt.Errorf("listing categories after delete: %w", err)
 	}
 	return categoriesSection(cats).Render(r.Context(), w)
+}
+
+func (m module) sendCreateEmail(w http.ResponseWriter, r *http.Request) error {
+	return m.sendSurveyEmail(w, r, "create")
+}
+
+func (m module) sendReminderEmail(w http.ResponseWriter, r *http.Request) error {
+	return m.sendSurveyEmail(w, r, "reminder")
+}
+
+func (m module) sendSurveyEmail(w http.ResponseWriter, r *http.Request, emailType string) error {
+	surveyID := chi.URLParam(r, "id")
+	ctx := r.Context()
+
+	s, err := m.surveyStore.Get(ctx, surveyID)
+	if err != nil {
+		return web.NewRequestError(fmt.Errorf("survey not found"), http.StatusNotFound)
+	}
+
+	users, err := m.surveyStore.ListSpecialSurveyUsers(ctx, surveyID)
+	if err != nil {
+		return fmt.Errorf("failed to list special survey users: %w", err)
+	}
+
+	var recipients []survey.SpecialSurveyUser
+	if emailType == "reminder" {
+		for _, u := range users {
+			if u.ResponseID == "" {
+				recipients = append(recipients, u)
+			}
+		}
+	} else { // "create"
+		recipients = users
+	}
+
+	if len(recipients) == 0 {
+		w.Header().Set("X-Message", "No recipients to email.")
+		w.WriteHeader(http.StatusOK)
+		return nil
+	}
+
+	// Run email sending in a background goroutine
+	go func() {
+		// Create a new context for the background task to avoid cancellation
+		bgCtx := context.Background()
+		for _, recipient := range recipients {
+			// Find user details to get their name
+			user, err := m.sessionStore.GetUserByEmail(bgCtx, recipient.UserEmail)
+			if err != nil {
+				m.l.Printf("Could not find user details for %s, skipping email. Error: %v", recipient.UserEmail, err)
+				continue
+			}
+
+			name := user.FirstName
+			if name == "" {
+				name = user.Name
+			}
+			if name == "" {
+				name = "User"
+			}
+
+			surveyClosedTime := "not specified"
+			if !s.SurveyClosed.IsZero() {
+				surveyClosedTime = s.SurveyClosed.In(web.GMTPlus2).Format("2 Jan 2006 at 15:04")
+			}
+
+			var subject, body string
+			surveyNameForSubject := s.Name
+			if recipient.Variable1 != "" {
+				surveyNameForSubject = fmt.Sprintf("%s (%s)", s.Name, recipient.Variable1)
+			}
+
+			if emailType == "create" {
+				subject = fmt.Sprintf("New Survey Available: %s", surveyNameForSubject)
+				body = fmt.Sprintf("You have a new survey available, please complete it when you have time.\n\nThe survey closes at: %s.\n\nRegards.", surveyClosedTime)
+			} else { // "reminder"
+				subject = fmt.Sprintf("Survey Reminder: %s", surveyNameForSubject)
+				body = fmt.Sprintf("This is a reminder to complete the survey \"%s\".\n\nThe survey closes at: %s.\n\nRegards.", s.Name, surveyClosedTime)
+			}
+
+			if err := m.emailSender.Send(recipient.UserEmail, name, subject, body, s.Name); err != nil {
+				m.l.Printf("Failed to send email to %s: %v", recipient.UserEmail, err)
+			}
+		}
+	}()
+
+	message := fmt.Sprintf("Queued %d emails for sending.", len(recipients))
+	w.Header().Set("X-Message", message)
+	w.WriteHeader(http.StatusOK)
+
+	return nil
 }
 
 func parseSurveyForm(r *http.Request) (survey.Survey, error) {

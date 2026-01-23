@@ -220,6 +220,30 @@ func (f FireStore) Create(ctx context.Context, now time.Time, u goth.User) (*htt
 	return nil, errors.New("not implemented")
 }
 
+func (f FireStore) GetUserByEmail(ctx context.Context, email string) (User, error) {
+	// Note: Caching by email isn't implemented for simplicity, but could be added.
+	// We still benefit from caching by user ID if a user is fetched multiple times via ID.
+
+	iter := f.db.Collection(collection.Users).Where("Email", "==", email).Limit(1).Documents(ctx)
+	doc, err := iter.Next()
+	if err != nil {
+		if err == iterator.Done {
+			return User{}, fmt.Errorf("user with email %s not found", email)
+		}
+		return User{}, fmt.Errorf("querying user by email: %w", err)
+	}
+
+	var user User
+	if err := doc.DataTo(&user); err != nil {
+		return User{}, fmt.Errorf("decoding user data: %w", err)
+	}
+
+	// Cache the user object by its ID for subsequent lookups
+	f.userCache.Store(user.ID, user)
+
+	return user, nil
+}
+
 func deleteCookieAndRedirect(w http.ResponseWriter, r *http.Request, path string, now time.Time) {
 	http.SetCookie(w, &http.Cookie{
 		Name:     Cookie,

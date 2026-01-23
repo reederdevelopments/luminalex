@@ -38,12 +38,30 @@ templ adminLayout(user auth.User, pageTitle string, children templ.Component) {
 					</div>
 				</header>
 				<main class="py-10">
-					<div class="mx-auto max-w-7xl sm:px-6 lg:px-8">
+					<div class="mx-auto max-w-8xl sm:px-6 lg:px-8">
 						@children
 					</div>
 				</main>
 			</div>
 			@layout.PageRefreshEvents()
+			<div id="toast-container" class="fixed bottom-5 right-5 z-50 space-y-2"></div>
+			<script>
+				document.body.addEventListener('htmx:afterRequest', function(evt) {
+					const message = evt.detail.xhr.getResponseHeader("X-Message");
+					if (message) {
+						const toastContainer = document.getElementById('toast-container');
+						const toast = document.createElement('div');
+						toast.className = 'bg-green-x-light text-white px-4 py-2 rounded-md shadow-lg';
+						toast.innerText = message;
+						toastContainer.appendChild(toast);
+						setTimeout(() => {
+							toast.style.transition = 'opacity 0.5s ease-out';
+							toast.style.opacity = '0';
+							setTimeout(() => toast.remove(), 500);
+						}, 3000);
+					}
+				});
+			</script>
 		</body>
 	</html>
 }
