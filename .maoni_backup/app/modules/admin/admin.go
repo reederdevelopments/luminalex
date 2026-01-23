@@ -79,6 +79,7 @@ func InitModule(l *log.Logger, app *web.App, sessionStore auth.Store, surveyStor
 	app.Handle(http.MethodGet, "/admin/surveys/partials/group-heading", m.groupHeadingPartial, adminMiddlewares...)
 
 	// Category Management
+	app.Handle(http.MethodGet, "/admin/config/categories-modal", m.categoriesModal, adminMiddlewares...)
 	app.Handle(http.MethodPost, "/admin/config/categories", m.createCategory, adminMiddlewares...)
 	app.Handle(http.MethodDelete, "/admin/config/categories/{id}", m.deleteCategory, adminMiddlewares...)
 }
@@ -188,14 +189,7 @@ func (m module) resultsLoader(w http.ResponseWriter, r *http.Request) error {
 
 func (m module) configLoader(w http.ResponseWriter, r *http.Request) error {
 	user := auth.FromCtx(r.Context()).User
-	cats, err := m.surveyStore.ListCategories(r.Context())
-	if err != nil {
-		return fmt.Errorf("listing categories: %w", err)
-	}
-	data := configPageData{
-		Categories: cats,
-	}
-	return adminPage(r, user, "Config", data).Render(r.Context(), w)
+	return adminPage(r, user, "Config", nil).Render(r.Context(), w)
 }
 
 func (m module) addSurveyForm(w http.ResponseWriter, r *http.Request) error {
@@ -449,6 +443,14 @@ func (m module) uploadSurveyUsers(w http.ResponseWriter, r *http.Request) error 
 	return web.ErrHandled
 }
 
+func (m module) categoriesModal(w http.ResponseWriter, r *http.Request) error {
+	cats, err := m.surveyStore.ListCategories(r.Context())
+	if err != nil {
+		return fmt.Errorf("listing categories: %w", err)
+	}
+	return categoriesModal(cats).Render(r.Context(), w)
+}
+
 func (m module) createCategory(w http.ResponseWriter, r *http.Request) error {
 	name := r.FormValue("name")
 	if name == "" {
@@ -464,7 +466,7 @@ func (m module) createCategory(w http.ResponseWriter, r *http.Request) error {
 		return fmt.Errorf("listing categories after create: %w", err)
 	}
 
-	return categoriesSection(cats).Render(r.Context(), w)
+	return categoriesModalContent(cats).Render(r.Context(), w)
 }
 
 func (m module) deleteCategory(w http.ResponseWriter, r *http.Request) error {
@@ -477,7 +479,7 @@ func (m module) deleteCategory(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return fmt.Errorf("listing categories after delete: %w", err)
 	}
-	return categoriesSection(cats).Render(r.Context(), w)
+	return categoriesModalContent(cats).Render(r.Context(), w)
 }
 
 func adminTabs(r *http.Request) []Tab {
