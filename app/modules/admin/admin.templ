@@ -1,4 +1,3 @@
-
 package admin
 
 import (
@@ -8,8 +7,11 @@ import (
 	"maoni/app/core/ui/icon"
 	"maoni/app/core/web"
 	"net/http"
+	"strings"
 	"time"
 )
+
+type dashboardPageData struct{}
 
 type surveyView struct {
 	survey.Survey
@@ -18,13 +20,14 @@ type surveyView struct {
 
 type surveysPageData struct {
 	Surveys      []surveyView
-	ShowInactive bool
+	StatusFilter string
 	NameFilter   string
 }
 
 type resultsPageData struct {
-	Surveys    []survey.Survey
-	NameFilter string
+	Surveys      []survey.Survey
+	NameFilter   string
+	StatusFilter string
 }
 
 type configPageData struct {
@@ -38,20 +41,6 @@ func formatSurveyDate(t time.Time) string {
 	return t.In(web.GMTPlus2).Format("2006-01-02 15:04")
 }
 
-func getSurveyStatus(s survey.Survey) (string, string) {
-	now := web.Now()
-	if !s.IsEnabled {
-		return "Disabled", "bg-red-x-light"
-	}
-	if !s.SurveyOpen.IsZero() && now.Before(s.SurveyOpen) {
-		return "Scheduled", "bg-gray-500"
-	}
-	if !s.SurveyClosed.IsZero() && now.After(s.SurveyClosed) {
-		return "Expired", "bg-red-x-dark"
-	}
-	return "Active", "bg-green-x-light"
-}
-
 templ adminPage(r *http.Request, user auth.User, pageTitle string, data any) {
 	@adminLayout(user, pageTitle, content(r, pageTitle, data))
 }
@@ -59,6 +48,8 @@ templ adminPage(r *http.Request, user auth.User, pageTitle string, data any) {
 templ content(r *http.Request, pageTitle string, data any) {
 	@Tabs(r, adminTabs(r)) {
 		switch v := data.(type) {
+			case dashboardPageData:
+				@dashboardContent()
 			case surveysPageData:
 				@surveysContent(v)
 			case resultsPageData:
@@ -67,6 +58,12 @@ templ content(r *http.Request, pageTitle string, data any) {
 				@configContent(v)
 		}
 	}
+}
+
+templ dashboardContent() {
+	<div class="h-[calc(100vh-20rem)] w-full">
+		<iframe src="https://lookerstudio.google.com/embed/reporting/dcdf8216-b7a4-4cde-8cfa-83faa8831c4e/page/p_ti0xww5atd" frameborder="0" style="border:0" allowfullscreen class="w-full h-full rounded-lg"></iframe>
+	</div>
 }
 
 templ surveysContent(data surveysPageData) {
@@ -85,19 +82,17 @@ templ surveysContent(data surveysPageData) {
 		</div>
 		<form method="GET" action="/admin/surveys" class="mt-6 p-4 rounded-lg border border-gray-200">
 			<div class="grid grid-cols-1 gap-x-4 gap-y-6 sm:grid-cols-6">
-				<div class="sm:col-span-4">
+				<div class="sm:col-span-full">
 					<label for="name" class="block text-sm font-medium text-gray-700">Filter by Name</label>
 					<input type="text" name="name" id="name" value={ data.NameFilter } class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-green-x-dark focus:ring-green-x-dark sm:text-sm"/>
 				</div>
-				<div class="sm:col-span-2 flex items-end">
-					<div class="relative flex items-start pl-4 pb-2">
-						<div class="flex h-6 items-center">
-							<input id="show_inactive" name="show_inactive" type="checkbox" value="true" class="h-4 w-4 rounded border-gray-300 text-green-x-dark focus:ring-green-x-dark" checked?={ data.ShowInactive }/>
-						</div>
-						<div class="ml-3 text-sm leading-6">
-							<label for="show_inactive" class="font-medium text-gray-900">Show Inactive</label>
-						</div>
-					</div>
+				<div class="sm:col-span-full">
+					<label for="status" class="block text-sm font-medium text-gray-700">Filter by Status</label>
+					<select id="status" name="status" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-green-x-dark focus:ring-green-x-dark sm:text-sm">
+						<option value="all" selected?={ data.StatusFilter == "all" || data.StatusFilter == "" }>All</option>
+						<option value="active" selected?={ data.StatusFilter == "active" }>Active</option>
+						<option value="inactive" selected?={ data.StatusFilter == "inactive" }>Inactive</option>
+					</select>
 				</div>
 			</div>
 			<div class="mt-4 flex justify-end space-x-3">
@@ -128,7 +123,6 @@ templ surveysContent(data surveysPageData) {
 							</thead>
 							<tbody class="divide-y divide-gray-200">
 								for _, s := range data.Surveys {
-									// FIX: Use 'if' with initialization to handle multi-value returns
 									if status, statusColor := getSurveyStatus(s.Survey); true {
 										<tr>
 											<td class="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900 sm:pl-0">
@@ -140,8 +134,7 @@ templ surveysContent(data surveysPageData) {
 											<td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">{ formatSurveyDate(s.SurveyClosed) }</td>
 											<td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
 												<form action={ templ.URL(fmt.Sprintf("/admin/surveys/%s/toggle", s.ID)) } method="post" title="Click to toggle Enabled/Disabled state">
-													// FIX: Use + for string concatenation
-													<button type="submit" class={ "px-2 py-1 rounded-full text-xs font-medium text-white " + statusColor }>
+													<button type="submit" class={ "px-2 py-1 rounded-full text-xs font-medium text-black " + statusColor }>
 														{ status }
 													</button>
 												</form>
@@ -176,6 +169,14 @@ templ resultsContent(data resultsPageData) {
 					<label for="name" class="block text-sm font-medium text-gray-700">Filter by Name</label>
 					<input type="text" name="name" id="name" value={ data.NameFilter } class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-green-x-dark focus:ring-green-x-dark sm:text-sm"/>
 				</div>
+				<div class="sm:col-span-full">
+					<label for="status" class="block text-sm font-medium text-gray-700">Filter by Status</label>
+					<select id="status" name="status" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-green-x-dark focus:ring-green-x-dark sm:text-sm">
+						<option value="all" selected?={ data.StatusFilter == "all" || data.StatusFilter == "" }>All</option>
+						<option value="active" selected?={ data.StatusFilter == "active" }>Active</option>
+						<option value="inactive" selected?={ data.StatusFilter == "inactive" }>Inactive</option>
+					</select>
+				</div>
 			</div>
 			<div class="mt-4 flex justify-end space-x-3">
 				<a href="/admin/results" class="rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50">Clear</a>
@@ -197,6 +198,7 @@ templ resultsContent(data resultsPageData) {
 										<th scope="col" class="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 sm:pl-6">Name</th>
 										<th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Open</th>
 										<th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Closed</th>
+										<th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Status</th>
 										<th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Sent</th>
 										<th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Responses</th>
 										<th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">% Completed</th>
@@ -208,13 +210,20 @@ templ resultsContent(data resultsPageData) {
 											<td class="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900 sm:pl-6">{ s.Name }</td>
 											<td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">{ formatSurveyDate(s.SurveyOpen) }</td>
 											<td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">{ formatSurveyDate(s.SurveyClosed) }</td>
+											if status, statusColor := getSurveyStatus(s); true {
+												<td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+													<span class={ "px-2 py-1 rounded-full text-xs font-medium text-black " + statusColor }>
+														{ status }
+													</span>
+												</td>
+											}
 											<td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">{ fmt.Sprintf("%d", s.AssignedUserCount) }</td>
 											<td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">{ fmt.Sprintf("%d", s.ResponseCount) }</td>
 											<td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
 												if s.AssignedUserCount > 0 {
 													{ fmt.Sprintf("%.0f%%", (float64(s.ResponseCount)/float64(s.AssignedUserCount))*100) }
 												} else {
-													N/A
+													{ "N/A" }
 												}
 											</td>
 										</tr>
@@ -275,4 +284,36 @@ templ categoriesSection(categories []survey.Category) {
 			<button type="submit" class="rounded-md bg-green-x-light px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-green-x-dark">Add</button>
 		</form>
 	</div>
+}
+
+func adminTabs(r *http.Request) []Tab {
+	tabs := []Tab{
+		{
+			Title:       "Surveys",
+			Href:        "/admin/surveys",
+			ActiveLinks: []string{"/admin/surveys"},
+		},
+		{
+			Title:       "Results",
+			Href:        "/admin/results",
+			ActiveLinks: []string{"/admin/results"},
+		},
+		{
+			Title:       "Config",
+			Href:        "/admin/config",
+			ActiveLinks: []string{"/admin/config"},
+		},
+		{
+			Title:       "Dashboard",
+			Href:        "/admin/dashboard",
+			ActiveLinks: []string{"/admin/dashboard"},
+		},
+	}
+
+	for i, t := range tabs {
+		if r.URL.Path == t.Href || strings.HasPrefix(r.URL.Path, t.Href+"/") {
+			tabs[i].Active = true
+		}
+	}
+	return tabs
 }

@@ -59,6 +59,7 @@ func InitModule(l *log.Logger, app *web.App, sessionStore auth.Store, surveyStor
 	adminMiddlewares := stdMid(l, sessionStore.Mid, m.adminOnly)
 
 	app.Handle(http.MethodGet, "/admin", m.adminRedirect, adminMiddlewares...)
+	app.Handle(http.MethodGet, "/admin/dashboard", m.dashboardLoader, adminMiddlewares...)
 	app.Handle(http.MethodGet, "/admin/surveys", m.surveysLoader, adminMiddlewares...)
 	app.Handle(http.MethodGet, "/admin/results", m.resultsLoader, adminMiddlewares...)
 	app.Handle(http.MethodGet, "/admin/config", m.configLoader, adminMiddlewares...)
@@ -88,9 +89,17 @@ func (m module) adminRedirect(w http.ResponseWriter, r *http.Request) error {
 	return web.ErrHandled
 }
 
+func (m module) dashboardLoader(w http.ResponseWriter, r *http.Request) error {
+	user := auth.FromCtx(r.Context()).User
+	return adminPage(r, user, "Dashboard", dashboardPageData{}).Render(r.Context(), w)
+}
+
 func (m module) surveysLoader(w http.ResponseWriter, r *http.Request) error {
 	user := auth.FromCtx(r.Context()).User
-	showInactive := r.URL.Query().Get("show_inactive") == "true"
+	statusFilter := r.URL.Query().Get("status")
+	if statusFilter == "" {
+		statusFilter = "all"
+	}
 	nameFilter := r.URL.Query().Get("name")
 	ctx := r.Context()
 
@@ -110,9 +119,20 @@ func (m module) surveysLoader(w http.ResponseWriter, r *http.Request) error {
 
 	var filteredSurveys []survey.Survey
 	for _, s := range allSurveys {
-		if !showInactive && !s.IsEnabled {
+		// Apply status filter
+		status, _ := getSurveyStatus(s)
+
+		// This logic seems reversed for 'inactive' in the original code, correcting it.
+		// A survey is active if its status is 'Active' or 'Scheduled'.
+		isActiveOrScheduled := status == "Active" || status == "Scheduled"
+
+		if statusFilter == "active" && !isActiveOrScheduled {
 			continue
 		}
+		if statusFilter == "inactive" && isActiveOrScheduled {
+			continue
+		}
+
 		if nameFilter != "" && !strings.Contains(strings.ToLower(s.Name), strings.ToLower(nameFilter)) {
 			continue
 		}
@@ -129,7 +149,7 @@ func (m module) surveysLoader(w http.ResponseWriter, r *http.Request) error {
 
 	data := surveysPageData{
 		Surveys:      surveyViews,
-		ShowInactive: showInactive,
+		StatusFilter: statusFilter,
 		NameFilter:   nameFilter,
 	}
 	return adminPage(r, user, "Surveys", data).Render(r.Context(), w)
@@ -141,6 +161,10 @@ func (m module) resultsLoader(w http.ResponseWriter, r *http.Request) error {
 
 	// Filtering params
 	nameFilter := r.URL.Query().Get("name")
+	statusFilter := r.URL.Query().Get("status")
+	if statusFilter == "" {
+		statusFilter = "all"
+	}
 
 	allSurveys, err := m.surveyStore.List(ctx, true) // Get all surveys
 	if err != nil {
@@ -159,6 +183,16 @@ func (m module) resultsLoader(w http.ResponseWriter, r *http.Request) error {
 
 	var filteredSurveys []survey.Survey
 	for _, s := range allSurveys {
+		// Apply status filter first
+		status, _ := getSurveyStatus(s)
+		isActiveOrScheduled := status == "Active" || status == "Scheduled"
+		if statusFilter == "active" && !isActiveOrScheduled {
+			continue
+		}
+		if statusFilter == "inactive" && isActiveOrScheduled {
+			continue
+		}
+
 		// Apply name filter
 		if nameFilter != "" && !strings.Contains(strings.ToLower(s.Name), strings.ToLower(nameFilter)) {
 			continue
@@ -180,8 +214,9 @@ func (m module) resultsLoader(w http.ResponseWriter, r *http.Request) error {
 	}
 
 	data := resultsPageData{
-		Surveys:    filteredSurveys,
-		NameFilter: nameFilter,
+		Surveys:      filteredSurveys,
+		NameFilter:   nameFilter,
+		StatusFilter: statusFilter,
 	}
 	return adminPage(r, user, "Results", data).Render(ctx, w)
 }
@@ -480,34 +515,6 @@ func (m module) deleteCategory(w http.ResponseWriter, r *http.Request) error {
 	return categoriesSection(cats).Render(r.Context(), w)
 }
 
-func adminTabs(r *http.Request) []Tab {
-	tabs := []Tab{
-		{
-			Title:       "Surveys",
-			Href:        "/admin/surveys",
-			ActiveLinks: []string{"/admin/surveys"},
-		},
-		{
-			Title:       "Results",
-			Href:        "/admin/results",
-			ActiveLinks: []string{"/admin/results"},
-		},
-		{
-			Title:       "Config",
-			Href:        "/admin/config",
-			ActiveLinks: []string{"/admin/config"},
-		},
-	}
-
-	for i, t := range tabs {
-		// Use exact match for top-level tabs, prefix for sub-pages
-		if r.URL.Path == t.Href || strings.HasPrefix(r.URL.Path, t.Href+"/") {
-			tabs[i].Active = true
-		}
-	}
-	return tabs
-}
-
 func parseSurveyForm(r *http.Request) (survey.Survey, error) {
 	if err := r.ParseForm(); err != nil {
 		return survey.Survey{}, err
@@ -598,4 +605,25 @@ func parseSurveyForm(r *http.Request) (survey.Survey, error) {
 	}
 
 	return s, nil
+}
+
+// getSurveyStatus determines the display status and color for a survey.
+func getSurveyStatus(s survey.Survey) (string, string) {
+	now := web.Now()
+
+	// Disabled takes precedence over any date logic.
+	if !s.IsEnabled {
+		return "Disabled", "bg-red-x-dark"
+	}
+
+	// Check against schedule if it is enabled.
+	if !s.SurveyOpen.IsZero() && now.Before(s.SurveyOpen) {
+		return "Scheduled", "bg-yellow-500"
+	}
+	if !s.SurveyClosed.IsZero() && now.After(s.SurveyClosed) {
+		return "Closed", "bg-gray-500"
+	}
+
+	// If we're here, it's enabled and within the open/close dates (or dates are not set).
+	return "Active", "bg-green-x-light"
 }
