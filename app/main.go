@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"embed"
-	"encoding/base64"
 	"errors"
 	"fmt"
 	"log"
@@ -20,7 +19,6 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"strings"
 	"syscall"
 	"time"
 
@@ -53,10 +51,10 @@ func run(l *log.Logger) error {
 		GoogleProjectID string `conf:",noumask"`
 		Host            string `conf:",noumask"`
 		SessionSecret   string `conf:",mask"`
-		ServiceAcc      string `conf:",mask"`
 		FsDbID          string `conf:"default:(default)"`
 		BqDatasetID     string `conf:"default:MAONI"`
-		ImpersonateUser string `conf:"default:maoni@unifi.credit"`
+		DataBotEmail    string `conf:",noumask"`
+		DataBotPassword string `conf:",mask"`
 	}{}
 
 	// Initial parse to capture command-line flags like --dev
@@ -116,40 +114,23 @@ func run(l *log.Logger) error {
 	if cfg.SessionSecret == "" {
 		return errors.New("required field SessionSecret is missing value")
 	}
-	if !cfg.Dev && cfg.ServiceAcc == "" {
-		return errors.New("required field ServiceAcc is missing value for non-dev environment")
+	if cfg.DataBotEmail == "" {
+		return errors.New("required field DataBotEmail is missing value")
+	}
+	if cfg.DataBotPassword == "" {
+		return errors.New("required field DataBotPassword is missing value")
 	}
 
 	// --- Services ---
 	eventBroker := events.NewBroker()
 	ctx := context.Background()
 
-	var emailSender email.Sender
-	if cfg.Dev {
-		emailSender = email.NewLogSender(l)
-		l.Println("Using LogSender for emails in dev mode.")
-	} else {
-		var serviceAccountJSON []byte
-		trimmedSA := strings.TrimSpace(cfg.ServiceAcc)
-		if strings.HasPrefix(trimmedSA, "{") && strings.HasSuffix(trimmedSA, "}") {
-			// Looks like raw JSON
-			serviceAccountJSON = []byte(cfg.ServiceAcc)
-		} else {
-			// Assume it's base64 encoded
-			decoded, err := base64.StdEncoding.DecodeString(cfg.ServiceAcc)
-			if err != nil {
-				return fmt.Errorf("failed to decode service account json: %w", err)
-			}
-			serviceAccountJSON = decoded
-		}
-
-		sender, err := email.NewGmailSender(l, serviceAccountJSON, cfg.ImpersonateUser)
-		if err != nil {
-			return fmt.Errorf("failed to create gmail sender: %w", err)
-		}
-		emailSender = sender
-		l.Println("Using GmailSender for emails.")
+	sender, err := email.NewGmailSender(l, cfg.DataBotEmail, cfg.DataBotPassword)
+	if err != nil {
+		return fmt.Errorf("failed to create gmail sender: %w", err)
 	}
+	emailSender := sender
+	l.Println("Using GmailSender for emails.")
 
 	fsDb, err := fire.Store(ctx, cfg.GoogleProjectID, cfg.FsDbID)
 	if err != nil {

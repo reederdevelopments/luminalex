@@ -562,11 +562,23 @@ func (m module) sendSurveyEmail(w http.ResponseWriter, r *http.Request, emailTyp
 		return nil
 	}
 
+	// Deduplicate recipients by email address.
+	uniqueRecipientsMap := make(map[string]survey.SpecialSurveyUser)
+	for _, r := range recipients {
+		if _, exists := uniqueRecipientsMap[r.UserEmail]; !exists {
+			uniqueRecipientsMap[r.UserEmail] = r
+		}
+	}
+	var uniqueRecipients []survey.SpecialSurveyUser
+	for _, user := range uniqueRecipientsMap {
+		uniqueRecipients = append(uniqueRecipients, user)
+	}
+
 	// Run email sending in a background goroutine
 	go func() {
 		// Create a new context for the background task to avoid cancellation
 		bgCtx := context.Background()
-		for _, recipient := range recipients {
+		for _, recipient := range uniqueRecipients {
 			// Find user details to get their name
 			user, err := m.sessionStore.GetUserByEmail(bgCtx, recipient.UserEmail)
 			if err != nil {
@@ -588,17 +600,13 @@ func (m module) sendSurveyEmail(w http.ResponseWriter, r *http.Request, emailTyp
 			}
 
 			var subject, body string
-			surveyNameForSubject := s.Name
-			if recipient.Variable1 != "" {
-				surveyNameForSubject = fmt.Sprintf("%s (%s)", s.Name, recipient.Variable1)
-			}
 
 			if emailType == "create" {
-				subject = fmt.Sprintf("New Survey Available: %s", surveyNameForSubject)
-				body = fmt.Sprintf("You have a new survey available, please complete it when you have time.\n\nThe survey closes at: %s.\n\nRegards.", surveyClosedTime)
+				subject = fmt.Sprintf("Maoni - New Survey Available")
+				body = fmt.Sprintf("You have a new survey available, please complete it when you have time.<br>The survey closes at: %s.<br><br>Regards.", surveyClosedTime)
 			} else { // "reminder"
-				subject = fmt.Sprintf("Survey Reminder: %s", surveyNameForSubject)
-				body = fmt.Sprintf("This is a reminder to complete the survey \"%s\".\n\nThe survey closes at: %s.\n\nRegards.", s.Name, surveyClosedTime)
+				subject = fmt.Sprintf("Maoni - Survey Reminder")
+				body = fmt.Sprintf("This is a reminder to complete the available survey.<br>The survey closes at: %s. <br><br>Regards.", surveyClosedTime)
 			}
 
 			if err := m.emailSender.Send(recipient.UserEmail, name, subject, body, s.Name); err != nil {
@@ -607,7 +615,7 @@ func (m module) sendSurveyEmail(w http.ResponseWriter, r *http.Request, emailTyp
 		}
 	}()
 
-	message := fmt.Sprintf("Queued %d emails for sending.", len(recipients))
+	message := fmt.Sprintf("Queued %d emails for sending.", len(uniqueRecipients))
 	w.Header().Set("X-Message", message)
 	w.WriteHeader(http.StatusOK)
 

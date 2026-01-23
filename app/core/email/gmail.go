@@ -2,53 +2,44 @@ package email
 
 import (
 	"bytes"
-	"context"
 	"embed"
-	"encoding/base64"
 	"fmt"
 	"log"
 	"net/mail"
+	"net/smtp"
 	"strings"
-
-	"golang.org/x/oauth2/google"
-	"google.golang.org/api/gmail/v1"
-	"google.golang.org/api/option"
+	"time"
 )
 
 //go:embed email_template.html
 var templateFS embed.FS
 
-// GmailSender implements the Sender interface using the Gmail API.
+// GmailSender implements the Sender interface using the Gmail SMTP server.
 type GmailSender struct {
 	l         *log.Logger
-	service   *gmail.Service
 	fromEmail string
+	password  string
+	smtpHost  string
+	smtpPort  string
 }
 
-// NewGmailSender creates a new GmailSender.
-func NewGmailSender(l *log.Logger, serviceAccountJSON []byte, impersonateUser string) (Sender, error) {
-	config, err := google.JWTConfigFromJSON(serviceAccountJSON, gmail.GmailSendScope)
-	if err != nil {
-		return nil, fmt.Errorf("unable to parse service account key file: %w", err)
-	}
-	config.Subject = impersonateUser
-
-	ctx := context.Background()
-	ts := config.TokenSource(ctx)
-
-	srv, err := gmail.NewService(ctx, option.WithTokenSource(ts))
-	if err != nil {
-		return nil, fmt.Errorf("unable to retrieve Gmail client: %w", err)
+// NewGmailSender creates a new GmailSender using SMTP with username and password.
+// The password should be an "App Password" for Gmail.
+func NewGmailSender(l *log.Logger, fromEmail, password string) (Sender, error) {
+	if fromEmail == "" || password == "" {
+		return nil, fmt.Errorf("email and password must be provided for GmailSender")
 	}
 
 	return &GmailSender{
 		l:         l,
-		service:   srv,
-		fromEmail: impersonateUser,
+		fromEmail: fromEmail,
+		password:  password,
+		smtpHost:  "smtp.gmail.com",
+		smtpPort:  "587",
 	}, nil
 }
 
-// Send sends an email using the Gmail API.
+// Send sends an email using the Gmail SMTP server.
 func (s *GmailSender) Send(to, name, subject, body, surveyName string) error {
 	templateBytes, err := templateFS.ReadFile("email_template.html")
 	if err != nil {
@@ -59,6 +50,7 @@ func (s *GmailSender) Send(to, name, subject, body, surveyName string) error {
 	htmlBody = strings.Replace(htmlBody, "{SURVEY_NAME}", surveyName, 1)
 	htmlBody = strings.Replace(htmlBody, "{NAME}", name, 1)
 	htmlBody = strings.Replace(htmlBody, "{EMAIL_BODY}", body, 1)
+	htmlBody = strings.Replace(htmlBody, "{DATE}", time.Now().Format("2006/01/02"), 1)
 
 	from := mail.Address{Name: "Maoni by Unifi", Address: s.fromEmail}
 	toAddr := mail.Address{Address: to}
@@ -72,11 +64,9 @@ func (s *GmailSender) Send(to, name, subject, body, surveyName string) error {
 	buf.WriteString("\r\n")
 	buf.WriteString(htmlBody)
 
-	msg := gmail.Message{
-		Raw: base64.URLEncoding.EncodeToString(buf.Bytes()),
-	}
+	auth := smtp.PlainAuth("", s.fromEmail, s.password, s.smtpHost)
 
-	_, err = s.service.Users.Messages.Send("me", &msg).Do()
+	err = smtp.SendMail(s.smtpHost+":"+s.smtpPort, auth, s.fromEmail, []string{to}, buf.Bytes())
 	if err != nil {
 		s.l.Printf("Failed to send email to %s: %v", to, err)
 		return err
