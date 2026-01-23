@@ -20,7 +20,6 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"strings"
 	"syscall"
 	"time"
 
@@ -129,20 +128,10 @@ func run(l *log.Logger) error {
 		emailSender = email.NewLogSender(l)
 		l.Println("Using LogSender for emails in dev mode.")
 	} else {
-		var serviceAccountJSON []byte
-		trimmedSA := strings.TrimSpace(cfg.ServiceAcc)
-		if strings.HasPrefix(trimmedSA, "{") && strings.HasSuffix(trimmedSA, "}") {
-			// Looks like raw JSON
-			serviceAccountJSON = []byte(cfg.ServiceAcc)
-		} else {
-			// Assume it's base64 encoded
-			decoded, err := base64.StdEncoding.DecodeString(cfg.ServiceAcc)
-			if err != nil {
-				return fmt.Errorf("failed to decode service account json: %w", err)
-			}
-			serviceAccountJSON = decoded
+		serviceAccountJSON, err := base64.StdEncoding.DecodeString(cfg.ServiceAcc)
+		if err != nil {
+			return fmt.Errorf("failed to decode service account json: %w", err)
 		}
-
 		sender, err := email.NewGmailSender(l, serviceAccountJSON, cfg.ImpersonateUser)
 		if err != nil {
 			return fmt.Errorf("failed to create gmail sender: %w", err)

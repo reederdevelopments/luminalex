@@ -1,6 +1,5 @@
 
 
-
 document.addEventListener("DOMContentLoaded", () => {
     const questionsContainer = document.getElementById("questions-container");
     const groupHeadingsContainer = document.getElementById("group-headings-container");
@@ -186,4 +185,3 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     });
 });
-
