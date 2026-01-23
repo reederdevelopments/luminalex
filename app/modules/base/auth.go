@@ -5,7 +5,6 @@ import (
 	"maoni/app/core/auth"
 	"maoni/app/core/web"
 	"net/http"
-	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/markbates/goth/gothic"
@@ -13,7 +12,7 @@ import (
 
 func (m module) signinLoader(w http.ResponseWriter, r *http.Request) error {
 	ctx := r.Context()
-	now := time.Now()
+	now := web.Now()
 
 	cookie, err := r.Cookie(auth.Cookie)
 	if err == nil {
@@ -45,7 +44,7 @@ func (m module) beginAuthHandler(w http.ResponseWriter, r *http.Request) error {
 
 func (m module) authCallbackHandler(w http.ResponseWriter, r *http.Request) error {
 	ctx := r.Context()
-	now := time.Now()
+	now := web.Now()
 
 	user, err := gothic.CompleteUserAuth(w, r)
 	if err != nil {
@@ -65,7 +64,7 @@ func (m module) authCallbackHandler(w http.ResponseWriter, r *http.Request) erro
 
 func (m module) logoutHandler(w http.ResponseWriter, r *http.Request) error {
 	ctx := r.Context()
-	now := time.Now()
+	now := web.Now()
 
 	gothic.Logout(w, r)
 	if err := m.sessionStore.HttpInvalidate(ctx, now, w, r); err != nil {

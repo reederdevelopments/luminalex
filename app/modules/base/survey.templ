@@ -13,10 +13,7 @@ import (
 // -----------------------------------------------------------------------------
 
 func surveyLink(s survey.Survey) templ.SafeURL {
-	if s.Type == survey.TypeSpecial {
-		return templ.URL(fmt.Sprintf("/surveys/%s?assignment_id=%s", s.ID, s.AssignmentID))
-	}
-	return templ.URL(fmt.Sprintf("/surveys/%s", s.ID))
+	return templ.URL(fmt.Sprintf("/surveys/%s?assignment_id=%s", s.ID, s.AssignmentID))
 }
 
 func hasQuestionsInGroup(questions []survey.Question, groupIndex int) bool {
@@ -87,7 +84,7 @@ templ surveyListPage(user auth.User, surveys []survey.Survey) {
 												<h2 class="min-w-0 text-sm font-semibold leading-6 text-gray-900">
 													<a href={ surveyLink(s) } class="flex gap-x-2">
 														<span class="truncate">{ s.Name }</span>
-														if s.Type == survey.TypeSpecial && s.PrefillData["variable_1"] != "" {
+														if s.PrefillData["variable_1"] != "" {
 															<span class="text-gray-500 font-normal truncate">({ s.PrefillData["variable_1"] })</span>
 														}
 														<span class="absolute inset-0"></span>
@@ -113,9 +110,7 @@ templ surveyListPage(user auth.User, surveys []survey.Survey) {
 templ TakeSurveyPage(user auth.User, s survey.Survey, prefills map[string]string) {
 	@BaseLayout(user, s.Name) {
 		<form action={ templ.URL(fmt.Sprintf("/surveys/%s", s.ID)) } method="POST">
-			if s.Type == survey.TypeSpecial {
-				<input type="hidden" name="assignment_id" value={ s.AssignmentID }/>
-			}
+			<input type="hidden" name="assignment_id" value={ s.AssignmentID }/>
 			<div class="space-y-10 bg-white p-6 rounded-lg shadow">
 				if s.Banner != "" {
 					<div class="w-full h-48 sm:h-96 -mx-6 -mt-6 rounded-t-lg overflow-clip">

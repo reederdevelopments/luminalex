@@ -63,12 +63,14 @@ func ensureSurveysTable(ctx context.Context, dataset *bigquery.Dataset) error {
 		{Name: "description", Type: bigquery.StringFieldType},
 		{Name: "banner", Type: bigquery.StringFieldType},
 		{Name: "is_enabled", Type: bigquery.BooleanFieldType, Required: true},
-		{Name: "allow_multiple_submissions", Type: bigquery.BooleanFieldType, Required: true},
 		{Name: "created_at", Type: bigquery.TimestampFieldType, Required: true},
 		{Name: "updated_at", Type: bigquery.TimestampFieldType, Required: true},
 		{Name: "questions", Type: bigquery.RecordFieldType, Repeated: true, Schema: questionSchema},
 		{Name: "group_headings", Type: bigquery.StringFieldType, Repeated: true},
 		{Name: "type", Type: bigquery.StringFieldType},
+		{Name: "category_id", Type: bigquery.StringFieldType},
+		{Name: "survey_open", Type: bigquery.TimestampFieldType},
+		{Name: "survey_closed", Type: bigquery.TimestampFieldType},
 	}
 
 	if err := createOrUpdateTable(ctx, table, schema); err != nil {

@@ -19,7 +19,6 @@ const (
 )
 
 const (
-	TypeNormal  = "normal"
 	TypeSpecial = "special"
 )
 
@@ -49,17 +48,19 @@ func (q *Question) Save() (map[string]bigquery.Value, string, error) {
 
 // Survey represents a survey with its questions.
 type Survey struct {
-	ID                       string     `json:"id" bigquery:"id" firestore:"id"`
-	Name                     string     `json:"name" bigquery:"name" firestore:"name"`
-	Description              string     `json:"description" bigquery:"description" firestore:"description"`
-	Banner                   string     `json:"banner,omitempty" bigquery:"banner" schema:"Banner" firestore:"banner,omitempty"`
-	Type                     string     `json:"type" bigquery:"type" schema:"Type" firestore:"type"`
-	IsEnabled                bool       `json:"is_enabled" bigquery:"is_enabled" firestore:"is_enabled"`
-	AllowMultipleSubmissions bool       `json:"allow_multiple_submissions" bigquery:"allow_multiple_submissions" firestore:"allow_multiple_submissions"`
-	CreatedAt                time.Time  `json:"created_at" schema:"-" bigquery:"created_at" firestore:"created_at"`
-	UpdatedAt                time.Time  `json:"updated_at" schema:"-" bigquery:"updated_at" firestore:"updated_at"`
-	Questions                []Question `json:"questions" schema:"questions" bigquery:"questions" firestore:"questions"`
-	GroupHeadings            []string   `json:"group_headings" bigquery:"group_headings" schema:"GroupHeadings" firestore:"group_headings"`
+	ID            string     `json:"id" bigquery:"id" firestore:"id"`
+	Name          string     `json:"name" bigquery:"name" firestore:"name"`
+	Description   string     `json:"description" bigquery:"description" firestore:"description"`
+	Banner        string     `json:"banner,omitempty" bigquery:"banner" schema:"Banner" firestore:"banner,omitempty"`
+	Type          string     `json:"type" bigquery:"type" schema:"Type" firestore:"type"`
+	CategoryID    string     `json:"category_id,omitempty" bigquery:"category_id" firestore:"category_id,omitempty" schema:"CategoryID"`
+	IsEnabled     bool       `json:"is_enabled" bigquery:"is_enabled" firestore:"is_enabled"`
+	SurveyOpen    time.Time  `json:"survey_open,omitempty" bigquery:"survey_open" firestore:"survey_open,omitempty" schema:"SurveyOpen"`
+	SurveyClosed  time.Time  `json:"survey_closed,omitempty" bigquery:"survey_closed" firestore:"survey_closed,omitempty" schema:"SurveyClosed"`
+	CreatedAt     time.Time  `json:"created_at" schema:"-" bigquery:"created_at" firestore:"created_at"`
+	UpdatedAt     time.Time  `json:"updated_at" schema:"-" bigquery:"updated_at" firestore:"updated_at"`
+	Questions     []Question `json:"questions" schema:"questions" bigquery:"questions" firestore:"questions"`
+	GroupHeadings []string   `json:"group_headings" bigquery:"group_headings" schema:"GroupHeadings" firestore:"group_headings"`
 	// This field is for display purposes only, not stored in BQ.
 	ResponseCount     int `json:"response_count,omitempty" bigquery:"-" firestore:"response_count,omitempty"`
 	AssignedUserCount int `json:"assigned_user_count,omitempty" bigquery:"-" firestore:"assigned_user_count,omitempty"`
@@ -97,6 +98,11 @@ type SpecialSurveyUser struct {
 	ResponseID   string `json:"response_id" firestore:"response_id"`
 }
 
+type Category struct {
+	ID   string `json:"id" firestore:"id"`
+	Name string `json:"name" firestore:"name"`
+}
+
 type Store interface {
 	Create(ctx context.Context, s Survey) error
 	Update(ctx context.Context, s Survey) error
@@ -104,8 +110,8 @@ type Store interface {
 	List(ctx context.Context, showInactive bool) ([]Survey, error)
 	ListForUser(ctx context.Context, userEmail string) ([]Survey, error)
 	SaveResponse(ctx context.Context, r Response) error
-	HasUserResponded(ctx context.Context, surveyID, userID string) (bool, error)
 	GetResponseCount(ctx context.Context, surveyID string) (int, error)
+	GetAllResponseCounts(ctx context.Context) (map[string]int, error)
 
 	// Special Surveys
 	AddSpecialSurveyUsers(ctx context.Context, users []SpecialSurveyUser) error
@@ -113,4 +119,11 @@ type Store interface {
 	GetSpecialSurveyAssignment(ctx context.Context, assignmentID string) (SpecialSurveyUser, bool, error)
 	UpdateSpecialSurveyUserResponse(ctx context.Context, assignmentID, responseID string) error
 	GetSpecialSurveyUserCount(ctx context.Context, surveyID string) (int, error)
+	GetAllAssignedUserCounts(ctx context.Context) (map[string]int, error)
+
+	// Categories
+	ListCategories(ctx context.Context) ([]Category, error)
+	CreateCategory(ctx context.Context, name string) (Category, error)
+	DeleteCategory(ctx context.Context, id string) error
+	CheckAndManageSurveyStatus(ctx context.Context) error
 }

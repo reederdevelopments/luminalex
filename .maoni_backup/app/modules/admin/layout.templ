@@ -27,7 +27,10 @@ templ adminLayout(user auth.User, pageTitle string, children templ.Component) {
 							</div>
 							<div class="flex items-center gap-4">
 								<span class="hidden sm:inline text-sm text-gray-200">Hello, { user.FirstName }</span>
-								<a href="/" class="text-sm font-medium text-white hover:text-gray-200">Back to Surveys</a>
+								<a href="/" class="text-sm font-medium text-white hover:text-gray-200">Home</a>
+								if user.IsAdmin {
+									<a href="/admin" class="text-sm font-medium text-white hover:text-gray-200">Admin</a>
+								}
 								<a href="/logout" class="text-sm font-medium text-gray-200 hover:text-white">Logout</a>
 							</div>
 						</div>
@@ -39,10 +42,6 @@ templ adminLayout(user auth.User, pageTitle string, children templ.Component) {
 					</div>
 				</main>
 			</div>
-			<!-- This script is for the HTMX-based form, which seems to be the primary implementation -->
-			<script src="/assets/scripts/survey_form.js" type="module"></script>
-			<!-- This script is for the van.js based form. Only include it on pages that actually use it. -->
-			<!-- <script src="/assets/scripts/admin_survey_form.js" type="module"></script> -->
 		</body>
 	</html>
 }

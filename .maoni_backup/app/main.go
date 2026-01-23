@@ -8,7 +8,6 @@ import (
 	"log"
 	"maoni/app/core/auth"
 	"maoni/app/core/bq"
-	"maoni/app/core/events"
 	"maoni/app/core/fire"
 	"maoni/app/core/mid"
 	"maoni/app/core/web"
@@ -114,7 +113,6 @@ func run(l *log.Logger) error {
 	}
 
 	// --- Services ---
-	eventBroker := events.NewBroker()
 	ctx := context.Background()
 	fsDb, err := fire.Store(ctx, cfg.GoogleProjectID, cfg.FsDbID)
 	if err != nil {
@@ -131,7 +129,7 @@ func run(l *log.Logger) error {
 	if err := bq.EnsureSchema(ctx, bqClient, cfg.BqDatasetID); err != nil {
 		return fmt.Errorf("failed to ensure bigquery schema: %w", err)
 	}
-	surveyStore := bq.NewSurveyStore(bqClient, fsDb, cfg.BqDatasetID, eventBroker)
+	surveyStore := bq.NewSurveyStore(bqClient, fsDb, cfg.BqDatasetID)
 
 	// --- Background Jobs ---
 	stopJobs := make(chan struct{})
@@ -198,7 +196,7 @@ func run(l *log.Logger) error {
 	)
 
 	// Initialize modules/routes
-	base.InitModule(l, app, sessionStore, surveyStore, eventBroker)
+	base.InitModule(l, app, sessionStore, surveyStore)
 	admin.InitModule(l, app, sessionStore, surveyStore)
 
 	// Start Server

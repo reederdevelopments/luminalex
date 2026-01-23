@@ -9,6 +9,12 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
+var GMTPlus2 = time.FixedZone("GMT+2", 2*60*60)
+
+func Now() time.Time {
+	return time.Now().In(GMTPlus2)
+}
+
 const DefaultShutdownTimeout = time.Second * 15
 
 var ErrHandled = errors.New("handler has already written a response")

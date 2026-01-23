@@ -7,7 +7,6 @@ import (
 	"maoni/app/core/web"
 	"net/http"
 	"strings"
-	"time"
 )
 
 type key int8
@@ -35,7 +34,7 @@ func FromCtx(ctx context.Context) AuthCtx {
 func (f FireStore) Mid(h web.Handler) web.Handler {
 	return func(w http.ResponseWriter, r *http.Request) error {
 		ctx := r.Context()
-		now := time.Now()
+		now := web.Now()
 
 		u, s, err := f.HttpGet(ctx, now, w, r)
 		if err != nil {

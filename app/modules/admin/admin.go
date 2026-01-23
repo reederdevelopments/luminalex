@@ -3,6 +3,7 @@ package admin
 import (
 	"encoding/csv"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"maoni/app/core/auth"
@@ -59,8 +60,8 @@ func InitModule(l *log.Logger, app *web.App, sessionStore auth.Store, surveyStor
 
 	app.Handle(http.MethodGet, "/admin", m.adminRedirect, adminMiddlewares...)
 	app.Handle(http.MethodGet, "/admin/surveys", m.surveysLoader, adminMiddlewares...)
-	app.Handle(http.MethodGet, "/admin/special", m.specialSurveysLoader, adminMiddlewares...)
 	app.Handle(http.MethodGet, "/admin/results", m.resultsLoader, adminMiddlewares...)
+	app.Handle(http.MethodGet, "/admin/config", m.configLoader, adminMiddlewares...)
 
 	app.Handle(http.MethodGet, "/admin/surveys/add", m.addSurveyForm, adminMiddlewares...)
 	app.Handle(http.MethodPost, "/admin/surveys", m.createSurvey, adminMiddlewares...)
@@ -70,13 +71,17 @@ func InitModule(l *log.Logger, app *web.App, sessionStore auth.Store, surveyStor
 	app.Handle(http.MethodPost, "/admin/surveys/preview", m.previewSurvey, adminMiddlewares...)
 
 	// Special Surveys User Management
-	app.Handle(http.MethodGet, "/admin/special/{id}", m.manageSpecialSurveyUsersLoader, adminMiddlewares...)
-	app.Handle(http.MethodPost, "/admin/special/{id}/add", m.addSpecialSurveyUser, adminMiddlewares...)
-	app.Handle(http.MethodPost, "/admin/special/{id}/upload", m.uploadSpecialSurveyUsers, adminMiddlewares...)
+	app.Handle(http.MethodGet, "/admin/surveys/{id}/users", m.manageSurveyUsersLoader, adminMiddlewares...)
+	app.Handle(http.MethodPost, "/admin/surveys/{id}/users/upload", m.uploadSurveyUsers, adminMiddlewares...)
 
 	// Partials for HTMX
 	app.Handle(http.MethodGet, "/admin/surveys/partials/question", m.questionPartial, adminMiddlewares...)
 	app.Handle(http.MethodGet, "/admin/surveys/partials/group-heading", m.groupHeadingPartial, adminMiddlewares...)
+
+	// Category Management
+	app.Handle(http.MethodGet, "/admin/config/categories-modal", m.categoriesModal, adminMiddlewares...)
+	app.Handle(http.MethodPost, "/admin/config/categories", m.createCategory, adminMiddlewares...)
+	app.Handle(http.MethodDelete, "/admin/config/categories/{id}", m.deleteCategory, adminMiddlewares...)
 }
 
 func (m module) adminRedirect(w http.ResponseWriter, r *http.Request) error {
@@ -87,47 +92,35 @@ func (m module) adminRedirect(w http.ResponseWriter, r *http.Request) error {
 func (m module) surveysLoader(w http.ResponseWriter, r *http.Request) error {
 	user := auth.FromCtx(r.Context()).User
 	showInactive := r.URL.Query().Get("show_inactive") == "true"
+	ctx := r.Context()
 
-	allSurveys, err := m.surveyStore.List(r.Context(), showInactive)
+	allSurveys, err := m.surveyStore.List(ctx, showInactive)
 	if err != nil {
 		return fmt.Errorf("failed to list surveys: %w", err)
 	}
 
-	var normalSurveys []survey.Survey
+	categories, err := m.surveyStore.ListCategories(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to list categories: %w", err)
+	}
+	categoryMap := make(map[string]string)
+	for _, cat := range categories {
+		categoryMap[cat.ID] = cat.Name
+	}
+
+	var surveyViews []surveyView
 	for _, s := range allSurveys {
-		if s.Type == survey.TypeNormal || s.Type == "" {
-			normalSurveys = append(normalSurveys, s)
-		}
+		surveyViews = append(surveyViews, surveyView{
+			Survey:       s,
+			CategoryName: categoryMap[s.CategoryID],
+		})
 	}
 
 	data := surveysPageData{
-		Surveys:      normalSurveys,
+		Surveys:      surveyViews,
 		ShowInactive: showInactive,
 	}
 	return adminPage(r, user, "Surveys", data).Render(r.Context(), w)
-}
-
-func (m module) specialSurveysLoader(w http.ResponseWriter, r *http.Request) error {
-	user := auth.FromCtx(r.Context()).User
-	showInactive := r.URL.Query().Get("show_inactive") == "true"
-
-	allSurveys, err := m.surveyStore.List(r.Context(), showInactive)
-	if err != nil {
-		return fmt.Errorf("failed to list surveys: %w", err)
-	}
-
-	var specialSurveys []survey.Survey
-	for _, s := range allSurveys {
-		if s.Type == survey.TypeSpecial {
-			specialSurveys = append(specialSurveys, s)
-		}
-	}
-
-	data := specialSurveysPageData{
-		Surveys:      specialSurveys,
-		ShowInactive: showInactive,
-	}
-	return adminPage(r, user, "Special Surveys", data).Render(r.Context(), w)
 }
 
 func (m module) resultsLoader(w http.ResponseWriter, r *http.Request) error {
@@ -136,11 +129,20 @@ func (m module) resultsLoader(w http.ResponseWriter, r *http.Request) error {
 
 	// Filtering params
 	nameFilter := r.URL.Query().Get("name")
-	typeFilter := r.URL.Query().Get("type")
 
 	allSurveys, err := m.surveyStore.List(ctx, true) // Get all surveys
 	if err != nil {
 		return fmt.Errorf("failed to list surveys for results: %w", err)
+	}
+
+	// Fetch all counts in batch from BigQuery for efficiency
+	responseCounts, err := m.surveyStore.GetAllResponseCounts(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get all response counts: %w", err)
+	}
+	assignedCounts, err := m.surveyStore.GetAllAssignedUserCounts(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get all assigned user counts: %w", err)
 	}
 
 	var filteredSurveys []survey.Survey
@@ -149,9 +151,17 @@ func (m module) resultsLoader(w http.ResponseWriter, r *http.Request) error {
 		if nameFilter != "" && !strings.Contains(strings.ToLower(s.Name), strings.ToLower(nameFilter)) {
 			continue
 		}
-		// Apply type filter
-		if typeFilter != "" && s.Type != typeFilter && !(typeFilter == "normal" && s.Type == "") {
-			continue
+
+		// Update counts from the maps
+		if count, ok := responseCounts[s.ID]; ok {
+			s.ResponseCount = count
+		} else {
+			s.ResponseCount = 0 // Default to 0 if not in map
+		}
+		if count, ok := assignedCounts[s.ID]; ok {
+			s.AssignedUserCount = count
+		} else {
+			s.AssignedUserCount = 0 // Default to 0 if not in map
 		}
 
 		filteredSurveys = append(filteredSurveys, s)
@@ -160,21 +170,29 @@ func (m module) resultsLoader(w http.ResponseWriter, r *http.Request) error {
 	data := resultsPageData{
 		Surveys:    filteredSurveys,
 		NameFilter: nameFilter,
-		TypeFilter: typeFilter,
 	}
 	return adminPage(r, user, "Results", data).Render(ctx, w)
 }
 
+func (m module) configLoader(w http.ResponseWriter, r *http.Request) error {
+	user := auth.FromCtx(r.Context()).User
+	return adminPage(r, user, "Config", nil).Render(r.Context(), w)
+}
+
 func (m module) addSurveyForm(w http.ResponseWriter, r *http.Request) error {
 	user := auth.FromCtx(r.Context()).User
+	cats, err := m.surveyStore.ListCategories(r.Context())
+	if err != nil {
+		return fmt.Errorf("listing categories for survey form: %w", err)
+	}
 	s := survey.Survey{
 		ID:            uuid.NewString(),
-		Type:          survey.TypeNormal,
+		Type:          survey.TypeSpecial,
 		IsEnabled:     true,
 		Questions:     []survey.Question{},
 		GroupHeadings: []string{""}, // Start with one empty heading
 	}
-	return surveyFormPage(user, s, "Create New Survey", "/admin/surveys").Render(r.Context(), w)
+	return surveyFormPage(user, s, "Create New Survey", "/admin/surveys", cats).Render(r.Context(), w)
 }
 
 func (m module) createSurvey(w http.ResponseWriter, r *http.Request) error {
@@ -183,13 +201,11 @@ func (m module) createSurvey(w http.ResponseWriter, r *http.Request) error {
 		return web.NewRequestError(err, http.StatusBadRequest)
 	}
 
-	now := time.Now()
+	now := web.Now()
 	s.ID = uuid.NewString()
 	s.CreatedAt = now
 	s.UpdatedAt = now
-	if s.Type == "" {
-		s.Type = survey.TypeNormal
-	}
+	s.Type = survey.TypeSpecial
 	for i := range s.Questions {
 		if s.Questions[i].ID == "" {
 			s.Questions[i].ID = uuid.NewString()
@@ -200,11 +216,7 @@ func (m module) createSurvey(w http.ResponseWriter, r *http.Request) error {
 		return fmt.Errorf("failed to create survey: %w", err)
 	}
 
-	if s.Type == survey.TypeSpecial {
-		http.Redirect(w, r, "/admin/special", http.StatusSeeOther)
-	} else {
-		http.Redirect(w, r, "/admin/surveys", http.StatusSeeOther)
-	}
+	http.Redirect(w, r, "/admin/surveys", http.StatusSeeOther)
 	return web.ErrHandled
 }
 
@@ -219,8 +231,13 @@ func (m module) editSurveyForm(w http.ResponseWriter, r *http.Request) error {
 		s.GroupHeadings = []string{""}
 	}
 
+	cats, err := m.surveyStore.ListCategories(r.Context())
+	if err != nil {
+		return fmt.Errorf("listing categories for survey form: %w", err)
+	}
+
 	formAction := fmt.Sprintf("/admin/surveys/%s", id)
-	return surveyFormPage(user, s, "Edit Survey", formAction).Render(r.Context(), w)
+	return surveyFormPage(user, s, "Edit Survey", formAction, cats).Render(r.Context(), w)
 }
 
 func (m module) updateSurvey(w http.ResponseWriter, r *http.Request) error {
@@ -237,10 +254,8 @@ func (m module) updateSurvey(w http.ResponseWriter, r *http.Request) error {
 	}
 	s.CreatedAt = existingSurvey.CreatedAt
 	s.ID = id
-	s.UpdatedAt = time.Now()
-	if s.Type == "" {
-		s.Type = survey.TypeNormal
-	}
+	s.UpdatedAt = web.Now()
+	s.Type = survey.TypeSpecial
 
 	for i := range s.Questions {
 		if s.Questions[i].ID == "" {
@@ -252,11 +267,7 @@ func (m module) updateSurvey(w http.ResponseWriter, r *http.Request) error {
 		return fmt.Errorf("failed to update survey: %w", err)
 	}
 
-	if s.Type == survey.TypeSpecial {
-		http.Redirect(w, r, "/admin/special", http.StatusSeeOther)
-	} else {
-		http.Redirect(w, r, "/admin/surveys", http.StatusSeeOther)
-	}
+	http.Redirect(w, r, "/admin/surveys", http.StatusSeeOther)
 	return web.ErrHandled
 }
 
@@ -294,7 +305,7 @@ func (m module) toggleSurveyStatus(w http.ResponseWriter, r *http.Request) error
 		s.IsEnabled = !s.IsEnabled
 	}
 
-	s.UpdatedAt = time.Now()
+	s.UpdatedAt = web.Now()
 
 	if err := m.surveyStore.Update(ctx, s); err != nil {
 		return fmt.Errorf("failed to toggle survey status: %w", err)
@@ -331,16 +342,13 @@ func (m module) groupHeadingPartial(w http.ResponseWriter, r *http.Request) erro
 	return groupHeadingInput("", index).Render(r.Context(), w)
 }
 
-func (m module) manageSpecialSurveyUsersLoader(w http.ResponseWriter, r *http.Request) error {
+func (m module) manageSurveyUsersLoader(w http.ResponseWriter, r *http.Request) error {
 	user := auth.FromCtx(r.Context()).User
 	surveyID := chi.URLParam(r, "id")
 
 	s, err := m.surveyStore.Get(r.Context(), surveyID)
 	if err != nil {
 		return web.NewRequestError(fmt.Errorf("survey not found"), http.StatusNotFound)
-	}
-	if s.Type != survey.TypeSpecial {
-		return web.NewRequestError(fmt.Errorf("not a special survey"), http.StatusBadRequest)
 	}
 
 	users, err := m.surveyStore.ListSpecialSurveyUsers(r.Context(), surveyID)
@@ -351,37 +359,7 @@ func (m module) manageSpecialSurveyUsersLoader(w http.ResponseWriter, r *http.Re
 	return specialSurveyDetailsPage(user, s, users).Render(r.Context(), w)
 }
 
-func (m module) addSpecialSurveyUser(w http.ResponseWriter, r *http.Request) error {
-	surveyID := chi.URLParam(r, "id")
-	if err := r.ParseForm(); err != nil {
-		return web.NewRequestError(err, http.StatusBadRequest)
-	}
-
-	userEmail := r.FormValue("user_email")
-	if userEmail == "" {
-		return web.NewRequestError(fmt.Errorf("email is required"), http.StatusBadRequest)
-	}
-
-	user := survey.SpecialSurveyUser{
-		AssignmentID: uuid.NewString(),
-		SurveyID:     surveyID,
-		UserEmail:    userEmail,
-		Variable1:    r.FormValue("variable_1"),
-		Variable2:    r.FormValue("variable_2"),
-		Variable3:    r.FormValue("variable_3"),
-		Variable4:    r.FormValue("variable_4"),
-		Variable5:    r.FormValue("variable_5"),
-	}
-
-	if err := m.surveyStore.AddSpecialSurveyUsers(r.Context(), []survey.SpecialSurveyUser{user}); err != nil {
-		return fmt.Errorf("failed to add special survey user: %w", err)
-	}
-
-	http.Redirect(w, r, r.Header.Get("Referer"), http.StatusSeeOther)
-	return web.ErrHandled
-}
-
-func (m module) uploadSpecialSurveyUsers(w http.ResponseWriter, r *http.Request) error {
+func (m module) uploadSurveyUsers(w http.ResponseWriter, r *http.Request) error {
 	surveyID := chi.URLParam(r, "id")
 	ctx := r.Context()
 
@@ -452,6 +430,45 @@ func (m module) uploadSpecialSurveyUsers(w http.ResponseWriter, r *http.Request)
 	return web.ErrHandled
 }
 
+func (m module) categoriesModal(w http.ResponseWriter, r *http.Request) error {
+	cats, err := m.surveyStore.ListCategories(r.Context())
+	if err != nil {
+		return fmt.Errorf("listing categories: %w", err)
+	}
+	return categoriesModal(cats).Render(r.Context(), w)
+}
+
+func (m module) createCategory(w http.ResponseWriter, r *http.Request) error {
+	name := r.FormValue("name")
+	if name == "" {
+		return web.NewRequestError(errors.New("category name is required"), http.StatusBadRequest)
+	}
+
+	if _, err := m.surveyStore.CreateCategory(r.Context(), name); err != nil {
+		return fmt.Errorf("creating category: %w", err)
+	}
+
+	cats, err := m.surveyStore.ListCategories(r.Context())
+	if err != nil {
+		return fmt.Errorf("listing categories after create: %w", err)
+	}
+
+	return categoriesModalContent(cats).Render(r.Context(), w)
+}
+
+func (m module) deleteCategory(w http.ResponseWriter, r *http.Request) error {
+	id := chi.URLParam(r, "id")
+	if err := m.surveyStore.DeleteCategory(r.Context(), id); err != nil {
+		return fmt.Errorf("deleting category: %w", err)
+	}
+
+	cats, err := m.surveyStore.ListCategories(r.Context())
+	if err != nil {
+		return fmt.Errorf("listing categories after delete: %w", err)
+	}
+	return categoriesModalContent(cats).Render(r.Context(), w)
+}
+
 func adminTabs(r *http.Request) []Tab {
 	tabs := []Tab{
 		{
@@ -460,14 +477,14 @@ func adminTabs(r *http.Request) []Tab {
 			ActiveLinks: []string{"/admin/surveys"},
 		},
 		{
-			Title:       "Special Surveys",
-			Href:        "/admin/special",
-			ActiveLinks: []string{"/admin/special"},
-		},
-		{
 			Title:       "Results",
 			Href:        "/admin/results",
 			ActiveLinks: []string{"/admin/results"},
+		},
+		{
+			Title:       "Config",
+			Href:        "/admin/config",
+			ActiveLinks: []string{"/admin/config"},
 		},
 	}
 
@@ -498,14 +515,13 @@ func parseSurveyForm(r *http.Request) (survey.Survey, error) {
 	// Manually set fields that might not be decoded correctly
 	s.Type = r.FormValue("Type")
 	if s.Type == "" {
-		s.Type = survey.TypeNormal
+		s.Type = survey.TypeSpecial
 	}
 	s.Banner = r.FormValue("Banner")
 
 	// Because unchecked checkboxes don't appear in form data, gorilla/schema won't update
 	// a field from true to false on an edit. We must manually handle them based on form value presence.
 	s.IsEnabled = r.FormValue("IsEnabled") == "true"
-	s.AllowMultipleSubmissions = r.FormValue("AllowMultipleSubmissions") == "true"
 
 	// gorilla/schema doesn't handle removal of all items from a slice field correctly.
 	// Manually re-assign from the form post to ensure it's cleared if empty.
@@ -552,6 +568,23 @@ func parseSurveyForm(r *http.Request) (survey.Survey, error) {
 		validQuestions = append(validQuestions, q)
 	}
 	s.Questions = validQuestions
+
+	// Parse date-time fields in GMT+2
+	const layout = "2006-01-02T15:04"
+	openStr := r.FormValue("SurveyOpen")
+	if openStr != "" {
+		t, err := time.ParseInLocation(layout, openStr, web.GMTPlus2)
+		if err == nil {
+			s.SurveyOpen = t
+		}
+	}
+	closeStr := r.FormValue("SurveyClosed")
+	if closeStr != "" {
+		t, err := time.ParseInLocation(layout, closeStr, web.GMTPlus2)
+		if err == nil {
+			s.SurveyClosed = t
+		}
+	}
 
 	return s, nil
 }

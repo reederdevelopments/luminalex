@@ -6,7 +6,6 @@ import (
 	"maoni/app/core/survey"
 	"maoni/app/core/web"
 	"net/http"
-	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
@@ -45,42 +44,38 @@ func (m module) viewSurveyHandler(w http.ResponseWriter, r *http.Request) error 
 		return web.NewRequestError(fmt.Errorf("survey not found: %w", err), http.StatusNotFound)
 	}
 
+	now := web.Now()
 	if !s.IsEnabled {
 		return web.NewRequestError(fmt.Errorf("survey is not active"), http.StatusForbidden)
 	}
+	if !s.SurveyOpen.IsZero() && now.Before(s.SurveyOpen) {
+		return web.NewRequestError(fmt.Errorf("survey is not yet open"), http.StatusForbidden)
+	}
+	if !s.SurveyClosed.IsZero() && now.After(s.SurveyClosed) {
+		return web.NewRequestError(fmt.Errorf("survey has closed"), http.StatusForbidden)
+	}
 
 	prefills := make(map[string]string)
-	if s.Type == survey.TypeSpecial {
-		if assignmentID == "" {
-			return web.NewRequestError(fmt.Errorf("assignment ID is required for this survey"), http.StatusBadRequest)
-		}
-		specialData, found, err := m.surveyStore.GetSpecialSurveyAssignment(ctx, assignmentID)
-		if err != nil {
-			return fmt.Errorf("checking special survey status for user: %w", err)
-		}
-		if !found || specialData.UserEmail != user.Email {
-			return web.NewRequestError(fmt.Errorf("you are not assigned to this survey"), http.StatusForbidden)
-		}
-		if specialData.ResponseID != "" {
-			return surveyAlreadyCompletedPage(user).Render(ctx, w)
-		}
-
-		s.AssignmentID = assignmentID // Pass assignment ID to the template
-		prefills["variable_1"] = specialData.Variable1
-		prefills["variable_2"] = specialData.Variable2
-		prefills["variable_3"] = specialData.Variable3
-		prefills["variable_4"] = specialData.Variable4
-		prefills["variable_5"] = specialData.Variable5
-
-	} else if !s.AllowMultipleSubmissions {
-		hasResponded, err := m.surveyStore.HasUserResponded(ctx, surveyID, user.ID)
-		if err != nil {
-			return fmt.Errorf("checking user response status: %w", err)
-		}
-		if hasResponded {
-			return surveyAlreadyCompletedPage(user).Render(ctx, w)
-		}
+	if assignmentID == "" {
+		return web.NewRequestError(fmt.Errorf("assignment ID is required for this survey"), http.StatusBadRequest)
 	}
+	specialData, found, err := m.surveyStore.GetSpecialSurveyAssignment(ctx, assignmentID)
+	if err != nil {
+		return fmt.Errorf("checking special survey status for user: %w", err)
+	}
+	if !found || specialData.UserEmail != user.Email {
+		return web.NewRequestError(fmt.Errorf("you are not assigned to this survey"), http.StatusForbidden)
+	}
+	if specialData.ResponseID != "" {
+		return surveyAlreadyCompletedPage(user).Render(ctx, w)
+	}
+
+	s.AssignmentID = assignmentID // Pass assignment ID to the template
+	prefills["variable_1"] = specialData.Variable1
+	prefills["variable_2"] = specialData.Variable2
+	prefills["variable_3"] = specialData.Variable3
+	prefills["variable_4"] = specialData.Variable4
+	prefills["variable_5"] = specialData.Variable5
 
 	return TakeSurveyPage(user, s, prefills).Render(ctx, w)
 }
@@ -100,8 +95,15 @@ func (m module) submitSurveyHandler(w http.ResponseWriter, r *http.Request) erro
 		return web.NewRequestError(fmt.Errorf("survey not found: %w", err), http.StatusNotFound)
 	}
 
+	now := web.Now()
 	if !s.IsEnabled {
 		return web.NewRequestError(fmt.Errorf("survey is not active"), http.StatusForbidden)
+	}
+	if !s.SurveyOpen.IsZero() && now.Before(s.SurveyOpen) {
+		return web.NewRequestError(fmt.Errorf("survey is not yet open"), http.StatusForbidden)
+	}
+	if !s.SurveyClosed.IsZero() && now.After(s.SurveyClosed) {
+		return web.NewRequestError(fmt.Errorf("survey has closed"), http.StatusForbidden)
 	}
 
 	// --- Validation & Response creation ---
@@ -124,7 +126,7 @@ func (m module) submitSurveyHandler(w http.ResponseWriter, r *http.Request) erro
 		ID:          uuid.NewString(),
 		SurveyID:    surveyID,
 		UserID:      user.ID,
-		SubmittedAt: time.Now(),
+		SubmittedAt: now,
 		Answers:     answers,
 	}
 
@@ -132,23 +134,21 @@ func (m module) submitSurveyHandler(w http.ResponseWriter, r *http.Request) erro
 		return fmt.Errorf("failed to save response: %w", err)
 	}
 
-	if s.Type == survey.TypeSpecial {
-		if assignmentID == "" {
-			return web.NewRequestError(fmt.Errorf("missing assignment ID"), http.StatusBadRequest)
-		}
+	if assignmentID == "" {
+		return web.NewRequestError(fmt.Errorf("missing assignment ID"), http.StatusBadRequest)
+	}
 
-		// Ensure the current user is the one assigned to this specific survey instance.
-		assignment, found, err := m.surveyStore.GetSpecialSurveyAssignment(ctx, assignmentID)
-		if err != nil {
-			return fmt.Errorf("validating assignment: %w", err)
-		}
-		if !found || assignment.UserEmail != user.Email {
-			return web.NewRequestError(fmt.Errorf("invalid assignment for user"), http.StatusForbidden)
-		}
+	// Ensure the current user is the one assigned to this specific survey instance.
+	assignment, found, err := m.surveyStore.GetSpecialSurveyAssignment(ctx, assignmentID)
+	if err != nil {
+		return fmt.Errorf("validating assignment: %w", err)
+	}
+	if !found || assignment.UserEmail != user.Email {
+		return web.NewRequestError(fmt.Errorf("invalid assignment for user"), http.StatusForbidden)
+	}
 
-		if err := m.surveyStore.UpdateSpecialSurveyUserResponse(ctx, assignmentID, response.ID); err != nil {
-			return fmt.Errorf("failed to update special survey assignment: %w", err)
-		}
+	if err := m.surveyStore.UpdateSpecialSurveyUserResponse(ctx, assignmentID, response.ID); err != nil {
+		return fmt.Errorf("failed to update special survey assignment: %w", err)
 	}
 
 	return surveyThankYouPage(user).Render(ctx, w)

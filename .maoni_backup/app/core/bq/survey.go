@@ -6,11 +6,13 @@ import (
 	"log"
 	"maoni/app/core/collection"
 	"maoni/app/core/survey"
+	"maoni/app/core/web"
 	"sync"
 	"time"
 
 	"cloud.google.com/go/bigquery"
 	"cloud.google.com/go/firestore"
+	"github.com/google/uuid"
 	"google.golang.org/api/iterator"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -102,35 +104,24 @@ func (s *SurveyStore) Update(ctx context.Context, su survey.Survey) error {
 		bgCtx := context.Background()
 		q := s.client.Query(fmt.Sprintf(`
 			UPDATE %s.%s
-			SET name = @name, description = @description, type = @type, is_enabled = @is_enabled, allow_multiple_submissions = @allow_multiple_submissions, updated_at = @updated_at, questions = @questions, group_headings = @group_headings, banner = @banner
+			SET name = @name, description = @description, type = @type, is_enabled = @is_enabled, updated_at = @updated_at, questions = @questions, group_headings = @group_headings, banner = @banner, category_id = @category_id, survey_open = @survey_open, survey_closed = @survey_closed
 			WHERE id = @id
 		`, s.datasetID, surveysTable))
 
-		// Need to convert []survey.Question to something BQ client understands for query params
-		var bqQuestions []bigquery.Value
-		for _, q := range su.Questions {
-			bqQuestions = append(bqQuestions, map[string]bigquery.Value{
-				"id":               q.ID,
-				"text":             q.Text,
-				"type":             q.Type,
-				"options":          q.Options,
-				"is_required":      q.IsRequired,
-				"group_number":     q.GroupNumber,
-				"prefill_variable": q.PrefillVariable,
-			})
-		}
-
+		// The BigQuery client can use the struct slice directly as it has `bigquery` tags.
 		q.Parameters = []bigquery.QueryParameter{
 			{Name: "id", Value: su.ID},
 			{Name: "name", Value: su.Name},
 			{Name: "description", Value: su.Description},
 			{Name: "type", Value: su.Type},
 			{Name: "is_enabled", Value: su.IsEnabled},
-			{Name: "allow_multiple_submissions", Value: su.AllowMultipleSubmissions},
 			{Name: "updated_at", Value: su.UpdatedAt},
-			{Name: "questions", Value: bqQuestions},
+			{Name: "questions", Value: su.Questions},
 			{Name: "group_headings", Value: su.GroupHeadings},
 			{Name: "banner", Value: su.Banner},
+			{Name: "category_id", Value: su.CategoryID},
+			{Name: "survey_open", Value: su.SurveyOpen},
+			{Name: "survey_closed", Value: su.SurveyClosed},
 		}
 
 		job, err := q.Run(bgCtx)
@@ -185,35 +176,20 @@ func (s *SurveyStore) Get(ctx context.Context, id string) (survey.Survey, error)
 	return su, nil
 }
 
-// addResponseCounts is a helper to decouple BQ count queries from Firestore reads
-func (s *SurveyStore) addResponseCounts(ctx context.Context, surveys []survey.Survey) ([]survey.Survey, error) {
-	// Create a copy to avoid modifying the cached slice
-	surveysCopy := make([]survey.Survey, len(surveys))
-	copy(surveysCopy, surveys)
-
-	for i := range surveysCopy {
-		count, err := s.GetResponseCount(ctx, surveysCopy[i].ID)
-		if err != nil {
-			// Log the error but don't fail the whole list
-			log.Printf("could not get response count for survey %s: %v", surveysCopy[i].ID, err)
-		}
-		surveysCopy[i].ResponseCount = count
-	}
-	return surveysCopy, nil
-}
-
 func (s *SurveyStore) List(ctx context.Context, showInactive bool) ([]survey.Survey, error) {
 	// Check list cache first
 	s.mu.RLock()
 	if showInactive && s.listCacheAll != nil && time.Now().Before(s.listCacheAllExpiresAt) {
-		cachedList := s.listCacheAll
+		surveysCopy := make([]survey.Survey, len(s.listCacheAll))
+		copy(surveysCopy, s.listCacheAll)
 		s.mu.RUnlock()
-		return s.addResponseCounts(ctx, cachedList)
+		return surveysCopy, nil
 	}
 	if !showInactive && s.listCache != nil && time.Now().Before(s.listCacheExpiresAt) {
-		cachedList := s.listCache
+		surveysCopy := make([]survey.Survey, len(s.listCache))
+		copy(surveysCopy, s.listCache)
 		s.mu.RUnlock()
-		return s.addResponseCounts(ctx, cachedList)
+		return surveysCopy, nil
 	}
 	s.mu.RUnlock()
 
@@ -261,28 +237,15 @@ func (s *SurveyStore) List(ctx context.Context, showInactive bool) ([]survey.Sur
 	}
 	s.mu.Unlock()
 
-	return s.addResponseCounts(ctx, filteredSurveys)
+	return filteredSurveys, nil
 }
 
 // ListForUser retrieves all surveys a user is eligible to take.
-// This includes all enabled "normal" surveys and any "special" surveys
-// they have been assigned to and have not yet completed.
+// This includes all "special" surveys they have been assigned to and have not yet completed.
 func (s *SurveyStore) ListForUser(ctx context.Context, userEmail string) ([]survey.Survey, error) {
 	var result []survey.Survey
 
-	// 1. Get all enabled surveys from Firestore (uses cache).
-	allEnabledSurveys, err := s.List(ctx, false)
-	if err != nil {
-		return nil, fmt.Errorf("failed to list active surveys: %w", err)
-	}
-
-	for _, su := range allEnabledSurveys {
-		if su.Type == survey.TypeNormal || su.Type == "" {
-			result = append(result, su)
-		}
-	}
-
-	// 2. Get all special survey assignments for the user that are not yet submitted from Firestore.
+	// Get all special survey assignments for the user that are not yet submitted from Firestore.
 	// This query requires a composite index on (user_email, response_id). Firestore will provide a link to create it if it doesn't exist.
 	iter := s.fs.Collection(collection.SpecialSurveyAssignments).
 		Where("user_email", "==", userEmail).
@@ -303,15 +266,24 @@ func (s *SurveyStore) ListForUser(ctx context.Context, userEmail string) ([]surv
 			continue
 		}
 
-		// 3. For each assignment, get the survey definition from Firestore (uses cache).
+		// For each assignment, get the survey definition from Firestore (uses cache).
 		su, err := s.Get(ctx, assignment.SurveyID)
 		if err != nil {
 			log.Printf("WARNING: could not get special survey %s for user %s: %v", assignment.SurveyID, userEmail, err)
 			continue // Skip if survey is not found or there's an error
 		}
 
-		// Only add if it's enabled.
-		if su.IsEnabled {
+		now := web.Now()
+		isActive := su.IsEnabled
+		if !su.SurveyOpen.IsZero() && now.Before(su.SurveyOpen) {
+			isActive = false
+		}
+		if !su.SurveyClosed.IsZero() && now.After(su.SurveyClosed) {
+			isActive = false
+		}
+
+		// Only add if it's effectively active.
+		if isActive {
 			su.AssignmentID = assignment.AssignmentID
 			su.PrefillData = map[string]string{
 				"variable_1": assignment.Variable1,
@@ -332,29 +304,20 @@ func (s *SurveyStore) SaveResponse(ctx context.Context, r survey.Response) error
 	if err := inserter.Put(ctx, r); err != nil {
 		return fmt.Errorf("failed to insert response: %w", err)
 	}
-	return nil
-}
 
-func (s *SurveyStore) HasUserResponded(ctx context.Context, surveyID, userID string) (bool, error) {
-	q := s.client.Query(fmt.Sprintf("SELECT COUNT(id) FROM `%s.%s` WHERE survey_id = @survey_id AND user_id = @user_id", s.datasetID, responsesTable))
-	q.Parameters = []bigquery.QueryParameter{
-		{Name: "survey_id", Value: surveyID},
-		{Name: "user_id", Value: userID},
-	}
-	it, err := q.Read(ctx)
+	// Increment the response count in Firestore.
+	surveyRef := s.fs.Collection(collection.Surveys).Doc(r.SurveyID)
+	_, err := surveyRef.Update(ctx, []firestore.Update{
+		{Path: "response_count", Value: firestore.Increment(1)},
+	})
 	if err != nil {
-		return false, fmt.Errorf("failed to query responses: %w", err)
+		// The response is in BQ but the count is not updated. This is a state inconsistency.
+		// Log a warning. A more robust system might have a background job to reconcile counts.
+		log.Printf("WARNING: failed to increment response count for survey %s: %v", r.SurveyID, err)
 	}
-	var row []bigquery.Value
-	err = it.Next(&row)
-	if err == iterator.Done {
-		return false, nil
-	}
-	if err != nil {
-		return false, fmt.Errorf("failed to read response count: %w", err)
-	}
-	count, ok := row[0].(int64)
-	return ok && count > 0, nil
+	s.invalidateCache(r.SurveyID) // Invalidate cache to reflect new count
+
+	return nil
 }
 
 func (s *SurveyStore) GetResponseCount(ctx context.Context, surveyID string) (int, error) {
@@ -388,6 +351,18 @@ func (s *SurveyStore) AddSpecialSurveyUsers(ctx context.Context, users []survey.
 	if len(users) == 0 {
 		return nil
 	}
+
+	// Increment the assigned user count in Firestore.
+	surveyID := users[0].SurveyID
+	surveyRef := s.fs.Collection(collection.Surveys).Doc(surveyID)
+	_, err := surveyRef.Update(ctx, []firestore.Update{
+		{Path: "assigned_user_count", Value: firestore.Increment(len(users))},
+	})
+	if err != nil {
+		// Log and continue, as writing the user assignments is the primary goal.
+		log.Printf("WARNING: failed to increment assigned user count for survey %s: %v", surveyID, err)
+	}
+	s.invalidateCache(surveyID)
 
 	// 1. Asynchronously stream to BigQuery for analytics.
 	go func() {
@@ -508,4 +483,155 @@ func (s *SurveyStore) GetSpecialSurveyUserCount(ctx context.Context, surveyID st
 		}
 	}
 	return 0, nil
+}
+
+// --- Category Methods ---
+
+func (s *SurveyStore) ListCategories(ctx context.Context) ([]survey.Category, error) {
+	iter := s.fs.Collection(collection.Categories).OrderBy("name", firestore.Asc).Documents(ctx)
+	var categories []survey.Category
+	for {
+		doc, err := iter.Next()
+		if err == iterator.Done {
+			break
+		}
+		if err != nil {
+			return nil, fmt.Errorf("failed to iterate categories: %w", err)
+		}
+		var cat survey.Category
+		if err := doc.DataTo(&cat); err != nil {
+			return nil, fmt.Errorf("failed to decode category: %w", err)
+		}
+		categories = append(categories, cat)
+	}
+	return categories, nil
+}
+
+func (s *SurveyStore) CreateCategory(ctx context.Context, name string) (survey.Category, error) {
+	id := uuid.NewString()
+	cat := survey.Category{
+		ID:   id,
+		Name: name,
+	}
+	_, err := s.fs.Collection(collection.Categories).Doc(id).Set(ctx, cat)
+	if err != nil {
+		return survey.Category{}, fmt.Errorf("failed to create category in firestore: %w", err)
+	}
+	return cat, nil
+}
+
+func (s *SurveyStore) DeleteCategory(ctx context.Context, id string) error {
+	_, err := s.fs.Collection(collection.Categories).Doc(id).Delete(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to delete category from firestore: %w", err)
+	}
+	return nil
+}
+
+func (s *SurveyStore) GetAllResponseCounts(ctx context.Context) (map[string]int, error) {
+	counts := make(map[string]int)
+	q := s.client.Query(fmt.Sprintf("SELECT survey_id, COUNT(id) FROM `%s.%s` GROUP BY survey_id", s.datasetID, responsesTable))
+	it, err := q.Read(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query response counts: %w", err)
+	}
+
+	type countRow struct {
+		SurveyID string `bigquery:"survey_id"`
+		Count    int64  `bigquery:"f0_"`
+	}
+
+	for {
+		var row countRow
+		err := it.Next(&row)
+		if err == iterator.Done {
+			break
+		}
+		if err != nil {
+			return nil, fmt.Errorf("failed to read response count row: %w", err)
+		}
+		counts[row.SurveyID] = int(row.Count)
+	}
+	return counts, nil
+}
+
+func (s *SurveyStore) GetAllAssignedUserCounts(ctx context.Context) (map[string]int, error) {
+	counts := make(map[string]int)
+	q := s.client.Query(fmt.Sprintf("SELECT survey_id, COUNT(assignment_id) FROM `%s.%s` GROUP BY survey_id", s.datasetID, specialSurveysTable))
+	it, err := q.Read(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query assigned user counts: %w", err)
+	}
+
+	type countRow struct {
+		SurveyID string `bigquery:"survey_id"`
+		Count    int64  `bigquery:"f0_"`
+	}
+
+	for {
+		var row countRow
+		err := it.Next(&row)
+		if err == iterator.Done {
+			break
+		}
+		if err != nil {
+			return nil, fmt.Errorf("failed to read assigned user count row: %w", err)
+		}
+		counts[row.SurveyID] = int(row.Count)
+	}
+	return counts, nil
+}
+
+func (s *SurveyStore) CheckAndManageSurveyStatus(ctx context.Context) error {
+	log.Println("Running scheduled job: CheckAndManageSurveyStatus")
+	now := web.Now()
+
+	iter := s.fs.Collection(collection.Surveys).Documents(ctx)
+	for {
+		doc, err := iter.Next()
+		if err == iterator.Done {
+			break
+		}
+		if err != nil {
+			return fmt.Errorf("failed to iterate surveys for status check: %w", err)
+		}
+
+		var su survey.Survey
+		if err := doc.DataTo(&su); err != nil {
+			log.Printf("WARNING: could not decode survey %s for status check: %v", doc.Ref.ID, err)
+			continue
+		}
+
+		// Only manage status automatically if at least one date is set.
+		// If no dates are set, the IsEnabled flag is considered manually controlled.
+		if su.SurveyOpen.IsZero() && su.SurveyClosed.IsZero() {
+			continue
+		}
+
+		// Determine the desired state based on the schedule.
+		shouldBeEnabled := true
+		if !su.SurveyOpen.IsZero() && now.Before(su.SurveyOpen) {
+			shouldBeEnabled = false
+		}
+		if !su.SurveyClosed.IsZero() && now.After(su.SurveyClosed) {
+			shouldBeEnabled = false
+		}
+
+		// If the current state doesn't match the desired state, update it.
+		if su.IsEnabled != shouldBeEnabled {
+			log.Printf("Survey '%s' (%s) is currently IsEnabled=%v, but schedule requires IsEnabled=%v. Updating.", su.Name, su.ID, su.IsEnabled, shouldBeEnabled)
+			su.IsEnabled = shouldBeEnabled
+			su.UpdatedAt = now
+
+			// Update both Firestore and BigQuery
+			if err := s.Update(ctx, su); err != nil {
+				log.Printf("ERROR: failed to update survey status for %s: %v", su.ID, err)
+				// Continue to the next one
+			} else {
+				log.Printf("Successfully updated survey '%s' status to IsEnabled=%v.", su.Name, su.IsEnabled)
+			}
+		}
+	}
+	log.Println("Finished scheduled job: CheckAndManageSurveyStatus")
+	return nil
 }
