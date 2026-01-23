@@ -3,27 +3,24 @@ package auth
 import (
 	"context"
 	"errors"
-	"fmt"
 	"log"
 	"maoni/app/core/collection"
 	"maoni/app/core/web"
 	"net/http"
-	"sync"
 	"time"
 
 	"cloud.google.com/go/firestore"
 	"github.com/Rockup-Consulting/std/x/randx"
+	"github.com/go-viper/mapstructure/v2"
 	"github.com/markbates/goth"
 	"google.golang.org/api/iterator"
 )
 
 type FireStore struct {
-	db           *firestore.Client
-	s            Service
-	l            *log.Logger
-	devMode      bool
-	sessionCache sync.Map // map[sessionID]Session
-	userCache    sync.Map // map[userID]User
+	db      *firestore.Client
+	s       Service
+	l       *log.Logger
+	devMode bool
 }
 
 func NewFireStore(l *log.Logger, client *firestore.Client, authService Service, devMode bool) FireStore {
@@ -42,55 +39,37 @@ func (f FireStore) Get(ctx context.Context, now time.Time, authToken string) (Us
 		return User{}, Session{}, ErrNotAuthenticated
 	}
 
-	// 1. Check session cache
+	s, err := f.db.Collection(collection.Sessions).Doc(token.SessionID).Get(ctx)
+	if err != nil {
+		f.l.Printf("err fetching session: %s", err)
+		return User{}, Session{}, err
+	}
+
 	var session Session
-	cached, found := f.sessionCache.Load(token.SessionID)
-	if found {
-		session = cached.(Session)
-	} else {
-		// Cache miss, fetch from Firestore
-		s, err := f.db.Collection(collection.Sessions).Doc(token.SessionID).Get(ctx)
-		if err != nil {
-			f.l.Printf("err fetching session: %s", err)
-			return User{}, Session{}, err
-		}
-		if err := s.DataTo(&session); err != nil {
-			f.l.Printf("err decoding session: %s", err)
-			return User{}, Session{}, ErrNotAuthenticated
-		}
-		// Store in cache
-		f.sessionCache.Store(session.ID, session)
+	if err := mapstructure.Decode(s.Data(), &session); err != nil {
+		f.l.Printf("err decoding session: %s", err)
+		return User{}, Session{}, ErrNotAuthenticated
 	}
 
 	if session.Invalidated {
 		f.l.Println("session has been invalidated")
-		f.sessionCache.Delete(session.ID) // Evict from cache
 		return User{}, Session{}, ErrNotAuthenticated
 	}
 
 	expiresAt := time.Unix(session.ExpiresAt, 0)
 	if now.After(expiresAt) {
 		f.l.Println("session has expired")
-		f.sessionCache.Delete(session.ID) // Evict from cache
 		return User{}, Session{}, ErrNotAuthenticated
 	}
 
-	// 2. Check user cache
+	doc, err := f.db.Collection(collection.Users).Doc(session.UserID).Get(ctx)
+	if err != nil {
+		return User{}, Session{}, err
+	}
+
 	var user User
-	cached, found = f.userCache.Load(session.UserID)
-	if found {
-		user = cached.(User)
-	} else {
-		// Cache miss, fetch from Firestore
-		doc, err := f.db.Collection(collection.Users).Doc(session.UserID).Get(ctx)
-		if err != nil {
-			return User{}, Session{}, err
-		}
-		if err := doc.DataTo(&user); err != nil {
-			return User{}, Session{}, err
-		}
-		// Store in cache
-		f.userCache.Store(user.ID, user)
+	if err := mapstructure.Decode(doc.Data(), &user); err != nil {
+		return User{}, Session{}, err
 	}
 
 	return user, session, nil
@@ -113,15 +92,16 @@ func (f FireStore) HttpGet(ctx context.Context, now time.Time, w http.ResponseWr
 }
 
 func (f FireStore) HttpCreate(ctx context.Context, now time.Time, u goth.User, w http.ResponseWriter, r *http.Request) error {
+	id := randx.UID()
+
 	iter := f.db.Collection(collection.Users).Where("Email", "==", u.Email).Documents(ctx)
 	doc, err := iter.Next()
-
-	var user User
 	if err != nil {
 		if err == iterator.Done {
 			f.l.Printf("User %q not found, creating new user.", u.Email)
-			user = User{
-				ID:           randx.UID(),
+			newUserID := randx.UID()
+			newUser := User{
+				ID:           newUserID,
 				FirstName:    u.FirstName,
 				LastName:     u.LastName,
 				Email:        u.Email,
@@ -131,34 +111,23 @@ func (f FireStore) HttpCreate(ctx context.Context, now time.Time, u goth.User, w
 				LastSyncTime: now.Unix(),
 				IsAdmin:      false,
 			}
-			if _, err := f.db.Collection(collection.Users).Doc(user.ID).Set(ctx, user); err != nil {
+			if _, err := f.db.Collection(collection.Users).Doc(newUserID).Set(ctx, newUser); err != nil {
+				return err
+			}
+			doc, err = f.db.Collection(collection.Users).Doc(newUserID).Get(ctx)
+			if err != nil {
 				return err
 			}
 		} else {
 			return err
 		}
-	} else {
-		// Existing user, update their info
-		if err := doc.DataTo(&user); err != nil {
-			return fmt.Errorf("decoding existing user: %w", err)
-		}
-
-		user.FirstName = u.FirstName
-		user.LastName = u.LastName
-		user.Name = u.Name
-		user.Thumbnail = u.AvatarURL
-		user.LastSyncTime = now.Unix()
-
-		if _, err := f.db.Collection(collection.Users).Doc(user.ID).Set(ctx, user); err != nil {
-			return fmt.Errorf("updating existing user: %w", err)
-		}
 	}
 
-	// Cache the user object
-	f.userCache.Store(user.ID, user)
+	var user User
+	if err := mapstructure.Decode(doc.Data(), &user); err != nil {
+		return err
+	}
 
-	// Create a new session
-	id := randx.UID()
 	s := Session{
 		ID:          id,
 		UserID:      user.ID,
@@ -171,9 +140,6 @@ func (f FireStore) HttpCreate(ctx context.Context, now time.Time, u goth.User, w
 	if _, err := f.db.Collection(collection.Sessions).Doc(id).Set(ctx, s); err != nil {
 		return err
 	}
-
-	// Cache the new session
-	f.sessionCache.Store(s.ID, s)
 
 	token := f.s.CreateToken(s)
 
@@ -208,9 +174,6 @@ func (f FireStore) HttpInvalidate(ctx context.Context, now time.Time, w http.Res
 	}); err != nil {
 		f.l.Printf("error invalidating session: %s", err)
 	}
-
-	// Delete from cache
-	f.sessionCache.Delete(session.ID)
 
 	deleteCookieAndRedirect(w, r, "/signin", now)
 	return nil

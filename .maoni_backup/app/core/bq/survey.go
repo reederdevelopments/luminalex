@@ -303,15 +303,10 @@ func (s *SurveyStore) ListForUser(ctx context.Context, userEmail string) ([]surv
 }
 
 func (s *SurveyStore) SaveResponse(ctx context.Context, r survey.Response) error {
-	// Asynchronously write a copy to BigQuery for analytics/backup.
-	go func() {
-		// Use a background context because the original request's context might be cancelled
-		bgCtx := context.Background()
-		inserter := s.client.Dataset(s.datasetID).Table(responsesTable).Inserter()
-		if err := inserter.Put(bgCtx, r); err != nil {
-			log.Printf("WARNING: failed to insert response %s into BigQuery: %v", r.ID, err)
-		}
-	}()
+	inserter := s.client.Dataset(s.datasetID).Table(responsesTable).Inserter()
+	if err := inserter.Put(ctx, r); err != nil {
+		return fmt.Errorf("failed to insert response: %w", err)
+	}
 
 	// Increment the response count in Firestore.
 	surveyRef := s.fs.Collection(collection.Surveys).Doc(r.SurveyID)
