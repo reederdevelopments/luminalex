@@ -19,7 +19,6 @@ type surveyView struct {
 type surveysPageData struct {
 	Surveys      []surveyView
 	ShowInactive bool
-	NameFilter   string
 }
 
 type resultsPageData struct {
@@ -79,28 +78,22 @@ templ surveysContent(data surveysPageData) {
 				</a>
 			</div>
 		</div>
-		<form method="GET" action="/admin/surveys" class="mt-6 p-4 rounded-lg border border-gray-200">
-			<div class="grid grid-cols-1 gap-x-4 gap-y-6 sm:grid-cols-6">
-				<div class="sm:col-span-4">
-					<label for="name" class="block text-sm font-medium text-gray-700">Filter by Name</label>
-					<input type="text" name="name" id="name" value={ data.NameFilter } class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-green-x-dark focus:ring-green-x-dark sm:text-sm"/>
-				</div>
-				<div class="sm:col-span-2 flex items-end">
-					<div class="relative flex items-start pl-4 pb-2">
-						<div class="flex h-6 items-center">
-							<input id="show_inactive" name="show_inactive" type="checkbox" value="true" class="h-4 w-4 rounded border-gray-300 text-green-x-dark focus:ring-green-x-dark" checked?={ data.ShowInactive }/>
-						</div>
-						<div class="ml-3 text-sm leading-6">
-							<label for="show_inactive" class="font-medium text-gray-900">Show Inactive</label>
-						</div>
-					</div>
-				</div>
+
+		<div class="mt-4 flex justify-end">
+			<div class="flex items-center gap-2">
+				<label for="show-inactive" class="text-sm font-medium text-gray-700">Show Inactive Surveys</label>
+				if data.ShowInactive {
+					<a id="show-inactive" href="/admin/surveys" class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent bg-green-x-dark transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-green-x-dark focus:ring-offset-2">
+						<span class="inline-block h-5 w-5 translate-x-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"></span>
+					</a>
+				} else {
+					<a id="show-inactive" href="/admin/surveys?show_inactive=true" class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent bg-gray-200 transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-green-x-dark focus:ring-offset-2">
+						<span class="inline-block h-5 w-5 translate-x-0 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"></span>
+					</a>
+				}
 			</div>
-			<div class="mt-4 flex justify-end space-x-3">
-				<a href="/admin/surveys" class="rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50">Clear</a>
-				<button type="submit" class="rounded-md bg-green-x-light px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-green-x-dark">Filter</button>
-			</div>
-		</form>
+		</div>
+
 		<div class="mt-8 flow-root">
 			<div class="-mx-4 -my-2 overflow-x-auto sm:-mx-6 lg:-mx-8">
 				<div class="inline-block min-w-full py-2 align-middle sm:px-6 lg:px-8">
@@ -167,15 +160,14 @@ templ resultsContent(data resultsPageData) {
 			</div>
 		</div>
 		<form method="GET" action="/admin/results" class="mt-6 p-4 rounded-lg border border-gray-200">
-			<div class="grid grid-cols-1 gap-x-4 gap-y-6 sm:grid-cols-6">
-				<div class="sm:col-span-full">
+			<div class="grid grid-cols-1 gap-x-4 gap-y-6 sm:grid-cols-4">
+				<div class="sm:col-span-3">
 					<label for="name" class="block text-sm font-medium text-gray-700">Filter by Name</label>
 					<input type="text" name="name" id="name" value={ data.NameFilter } class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-green-x-dark focus:ring-green-x-dark sm:text-sm"/>
 				</div>
-			</div>
-			<div class="mt-4 flex justify-end space-x-3">
-				<a href="/admin/results" class="rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50">Clear</a>
-				<button type="submit" class="rounded-md bg-green-x-light px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-green-x-dark">Filter</button>
+				<div class="sm:col-span-1 flex items-end">
+					<button type="submit" class="rounded-md bg-green-x-light px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-green-x-dark">Filter</button>
+				</div>
 			</div>
 		</form>
 		<div class="mt-8 flow-root">
@@ -191,8 +183,6 @@ templ resultsContent(data resultsPageData) {
 								<thead class="bg-gray-50">
 									<tr>
 										<th scope="col" class="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 sm:pl-6">Name</th>
-										<th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Open</th>
-										<th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Closed</th>
 										<th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Sent</th>
 										<th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Responses</th>
 										<th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">% Completed</th>
@@ -202,8 +192,6 @@ templ resultsContent(data resultsPageData) {
 									for _, s := range data.Surveys {
 										<tr>
 											<td class="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900 sm:pl-6">{ s.Name }</td>
-											<td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">{ formatSurveyDate(s.SurveyOpen) }</td>
-											<td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">{ formatSurveyDate(s.SurveyClosed) }</td>
 											<td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">{ fmt.Sprintf("%d", s.AssignedUserCount) }</td>
 											<td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">{ fmt.Sprintf("%d", s.ResponseCount) }</td>
 											<td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">

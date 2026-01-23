@@ -92,10 +92,9 @@ func (m module) adminRedirect(w http.ResponseWriter, r *http.Request) error {
 func (m module) surveysLoader(w http.ResponseWriter, r *http.Request) error {
 	user := auth.FromCtx(r.Context()).User
 	showInactive := r.URL.Query().Get("show_inactive") == "true"
-	nameFilter := r.URL.Query().Get("name")
 	ctx := r.Context()
 
-	allSurveys, err := m.surveyStore.List(ctx, true) // Always get all surveys
+	allSurveys, err := m.surveyStore.List(ctx, showInactive)
 	if err != nil {
 		return fmt.Errorf("failed to list surveys: %w", err)
 	}
@@ -109,19 +108,8 @@ func (m module) surveysLoader(w http.ResponseWriter, r *http.Request) error {
 		categoryMap[cat.ID] = cat.Name
 	}
 
-	var filteredSurveys []survey.Survey
-	for _, s := range allSurveys {
-		if !showInactive && !s.IsEnabled {
-			continue
-		}
-		if nameFilter != "" && !strings.Contains(strings.ToLower(s.Name), strings.ToLower(nameFilter)) {
-			continue
-		}
-		filteredSurveys = append(filteredSurveys, s)
-	}
-
 	var surveyViews []surveyView
-	for _, s := range filteredSurveys {
+	for _, s := range allSurveys {
 		surveyViews = append(surveyViews, surveyView{
 			Survey:       s,
 			CategoryName: categoryMap[s.CategoryID],
@@ -131,7 +119,6 @@ func (m module) surveysLoader(w http.ResponseWriter, r *http.Request) error {
 	data := surveysPageData{
 		Surveys:      surveyViews,
 		ShowInactive: showInactive,
-		NameFilter:   nameFilter,
 	}
 	return adminPage(r, user, "Surveys", data).Render(r.Context(), w)
 }
