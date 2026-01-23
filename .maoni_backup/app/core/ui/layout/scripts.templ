@@ -1,0 +1,18 @@
+
+package layout
+
+templ PageRefreshEvents() {
+	<script>
+		const eventSource = new EventSource('/events');
+
+		eventSource.addEventListener('surveys-updated', function(event) {
+			console.log('Survey statuses updated on server, reloading page.');
+			location.reload();
+		});
+
+		eventSource.onerror = function(err) {
+			console.error("EventSource failed:", err);
+			// The browser will automatically attempt to reconnect.
+		};
+	</script>
+}
