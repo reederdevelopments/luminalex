@@ -602,10 +602,10 @@ func (m module) sendSurveyEmail(w http.ResponseWriter, r *http.Request, emailTyp
 			var subject, body string
 
 			if emailType == "create" {
-				subject = fmt.Sprintf("Maoni - New Survey Available")
+				subject = fmt.Sprintf("Community Feedback - New Survey Available")
 				body = fmt.Sprintf("You have a new survey available, please complete it when you have time.<br>The survey closes at: %s.<br><br>Regards.", surveyClosedTime)
 			} else { // "reminder"
-				subject = fmt.Sprintf("Maoni - Survey Reminder")
+				subject = fmt.Sprintf("Community Feedback - Survey Reminder")
 				body = fmt.Sprintf("This is a reminder to complete the available survey.<br>The survey closes at: %s. <br><br>Regards.", surveyClosedTime)
 			}
 

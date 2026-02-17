@@ -52,7 +52,7 @@ func (s *GmailSender) Send(to, name, subject, body, surveyName string) error {
 	htmlBody = strings.Replace(htmlBody, "{EMAIL_BODY}", body, 1)
 	htmlBody = strings.Replace(htmlBody, "{DATE}", time.Now().Format("2006/01/02"), 1)
 
-	from := mail.Address{Name: "Maoni by Unifi", Address: s.fromEmail}
+	from := mail.Address{Name: "Community Feedback by Unifi", Address: s.fromEmail}
 	toAddr := mail.Address{Address: to}
 
 	var buf bytes.Buffer
