@@ -1,6 +1,4 @@
 
-
-
 document.addEventListener("DOMContentLoaded", () => {
     const questionsContainer = document.getElementById("questions-container");
     const groupHeadingsContainer = document.getElementById("group-headings-container");
@@ -31,16 +29,26 @@ document.addEventListener("DOMContentLoaded", () => {
             });
 
 
-            // Update the data-question-index for the options list
+            // Update the data-question-index for the options and rows list
             const optionsList = questionBlock.querySelector('.options-list');
             if (optionsList) {
                 optionsList.dataset.questionIndex = questionIndex;
+            }
+            const rowsList = questionBlock.querySelector('.rows-list');
+            if (rowsList) {
+                rowsList.dataset.questionIndex = questionIndex;
             }
 
             // Update option placeholder text
             const optionInputs = questionBlock.querySelectorAll('.option-input input[type="text"]');
             optionInputs.forEach((input, optionIndex) => {
                 input.placeholder = `Option ${optionIndex + 1}`;
+            });
+
+            // Update row placeholder text
+            const rowInputs = questionBlock.querySelectorAll('.row-input input[type="text"]');
+            rowInputs.forEach((input, rowIndex) => {
+                input.placeholder = `Row ${rowIndex + 1}`;
             });
         });
     }
@@ -82,22 +90,53 @@ document.addEventListener("DOMContentLoaded", () => {
         newOption.querySelector('input').focus();
     }
 
-    // Function to show/hide options based on question type
-    function toggleOptions(questionDiv) {
+    // Function to add a new row input to a question
+    function addRow(rowsDiv) {
+        const questionIndex = rowsDiv.dataset.questionIndex;
+        const rowIndex = rowsDiv.querySelectorAll(".row-input").length;
+
+        const newRow = document.createElement("div");
+        newRow.className = "flex items-center gap-2 mt-2 row-input";
+        newRow.innerHTML = `
+            <input type="text" name="questions[${questionIndex}].Rows" class="block w-full rounded-md border-gray-300 shadow-sm focus:border-green-x-dark focus:ring-green-x-dark sm:text-sm" placeholder="Row ${rowIndex + 1}" value="">
+            <button type="button" class="remove-row-btn text-red-x-dark hover:text-red-x-light">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5 pointer-events-none">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+            </button>
+        `;
+        rowsDiv.appendChild(newRow);
+        newRow.querySelector('input').focus();
+    }
+
+    // Function to show/hide options and rows based on question type
+    function toggleOptionsAndRows(questionDiv) {
         const typeSelector = questionDiv.querySelector(".question-type-selector");
         const optionsContainer = questionDiv.querySelector(".options-container");
+        const rowsContainer = questionDiv.querySelector(".rows-container");
 
-        if (!typeSelector || !optionsContainer) {
+        if (!typeSelector) {
             return;
         }
 
         const selectedType = typeSelector.value;
-        const hasOptions = ["multiple-choice", "checkbox", "dropdown"].includes(selectedType);
+        const hasOptions = ["multiple-choice", "checkbox", "dropdown", "multi-grid-radio"].includes(selectedType);
+        const hasRows = ["multi-grid-radio"].includes(selectedType);
 
-        if (hasOptions) {
-            optionsContainer.classList.remove("hidden");
-        } else {
-            optionsContainer.classList.add("hidden");
+        if (optionsContainer) {
+            if (hasOptions) {
+                optionsContainer.classList.remove("hidden");
+            } else {
+                optionsContainer.classList.add("hidden");
+            }
+        }
+
+        if (rowsContainer) {
+            if (hasRows) {
+                rowsContainer.classList.remove("hidden");
+            } else {
+                rowsContainer.classList.add("hidden");
+            }
         }
     }
 
@@ -128,16 +167,37 @@ document.addEventListener("DOMContentLoaded", () => {
             return;
         }
 
+        // Handle add row
+        const addRowBtn = e.target.closest(".add-row-btn");
+        if (addRowBtn) {
+            const rowsDiv = addRowBtn.closest(".rows-container").querySelector(".rows-list");
+            addRow(rowsDiv);
+            return;
+        }
+
         // Handle remove option
         const removeOptionBtn = e.target.closest(".remove-option-btn");
         if (removeOptionBtn) {
             const optionsDiv = removeOptionBtn.closest('.options-list');
             removeOptionBtn.closest(".option-input").remove();
-            
+
             // Re-index placeholder text for remaining options
             const optionInputs = optionsDiv.querySelectorAll('.option-input input[type="text"]');
             optionInputs.forEach((input, optionIndex) => {
                 input.placeholder = `Option ${optionIndex + 1}`;
+            });
+        }
+        
+        // Handle remove row
+        const removeRowBtn = e.target.closest(".remove-row-btn");
+        if (removeRowBtn) {
+            const rowsDiv = removeRowBtn.closest('.rows-list');
+            removeRowBtn.closest(".row-input").remove();
+            
+            // Re-index placeholder text for remaining rows
+            const rowInputs = rowsDiv.querySelectorAll('.row-input input[type="text"]');
+            rowInputs.forEach((input, rowIndex) => {
+                input.placeholder = `Row ${rowIndex + 1}`;
             });
         }
     });
@@ -146,19 +206,19 @@ document.addEventListener("DOMContentLoaded", () => {
         // Handle question type change
         if (e.target.classList.contains("question-type-selector")) {
             const questionDiv = e.target.closest(".question-block");
-            toggleOptions(questionDiv);
+            toggleOptionsAndRows(questionDiv);
         }
     });
 
     // Initial setup for any questions that are already on the page (e.g., on edit)
-    document.querySelectorAll(".question-block").forEach(toggleOptions);
+    document.querySelectorAll(".question-block").forEach(toggleOptionsAndRows);
 
-    // After htmx adds a new question, run toggleOptions on it
+    // After htmx adds a new question, run toggleOptionsAndRows on it
     document.body.addEventListener('htmx:afterSwap', function(evt) {
         if (evt.detail.target.id === 'questions-container') {
             const newQuestion = evt.detail.target.lastElementChild
             if (newQuestion && newQuestion.classList.contains('question-block')) {
-                toggleOptions(newQuestion);
+                toggleOptionsAndRows(newQuestion);
                 // focus the new question's text input
                 const textInput = newQuestion.querySelector('input[type="text"]');
                 if (textInput) {
@@ -186,4 +246,3 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     });
 });
-

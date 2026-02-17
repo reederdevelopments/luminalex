@@ -129,7 +129,7 @@ templ surveysContent(data surveysPageData) {
 										<tr>
 											<td class="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900 sm:pl-0">
 												{ s.Name }
-												<div class="text-gray-500 font-normal">{ s.Description }</div>
+												<div class="text-gray-500 font-normal whitespace-normal">{ s.Description }</div>
 											</td>
 											<td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">{ s.CategoryName }</td>
 											<td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">{ formatSurveyDate(s.SurveyOpen) }</td>
@@ -151,7 +151,7 @@ templ surveysContent(data surveysPageData) {
 															hx-confirm="Are you sure you want to send a notification email to all assigned recipients?"
 															hx-swap="none"
 														>
-															Create
+															Send All
 														</button>
 														<button
 															type="button"

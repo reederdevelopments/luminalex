@@ -25,40 +25,6 @@ func hasQuestionsInGroup(questions []survey.Question, groupIndex int) bool {
 	return false
 }
 
-func getStringValue(prefill string, saved any) string {
-	if s, ok := saved.(string); ok && s != "" {
-		return s
-	}
-	return prefill
-}
-
-func isValueSelected(option string, saved any) bool {
-	if saved == nil {
-		return false
-	}
-	// For radio buttons or dropdown, saved is a string
-	if s, ok := saved.(string); ok {
-		return s == option
-	}
-	// For checkboxes, saved is a slice. Firestore decodes JSON arrays to []interface{} which is []any in Go.
-	if slice, ok := saved.([]any); ok {
-		for _, v := range slice {
-			if s, ok := v.(string); ok && s == option {
-				return true
-			}
-		}
-	}
-	return false
-}
-
-func getGridValue(qID string, rowIndex int, savedAnswers map[string]any) any {
-	if savedAnswers == nil {
-		return nil
-	}
-	key := fmt.Sprintf("%s_%d", qID, rowIndex)
-	return savedAnswers[key]
-}
-
 // Components (Templ components)
 // -----------------------------------------------------------------------------
 
@@ -141,14 +107,14 @@ templ surveyListPage(user auth.User, surveys []survey.Survey) {
 	}
 }
 
-templ TakeSurveyPage(user auth.User, s survey.Survey, prefills map[string]string, savedAnswers map[string]any) {
+templ TakeSurveyPage(user auth.User, s survey.Survey, prefills map[string]string) {
 	@BaseLayout(user, s.Name) {
 		<form action={ templ.URL(fmt.Sprintf("/surveys/%s", s.ID)) } method="POST">
 			<input type="hidden" name="assignment_id" value={ s.AssignmentID }/>
 			<div class="space-y-10 bg-white p-6 rounded-lg shadow">
 				if s.Banner != "" {
-					<div class="w-full h-48 sm:h-96 rounded-t-lg overflow-clip">
-						<img src={ s.Banner } alt="Survey Banner" class="w-full h-full object-fit" loading="lazy"/>
+					<div class="w-full h-48 sm:h-96 -mx-6 -mt-6 rounded-t-lg overflow-clip">
+						<img src={ s.Banner } alt="Survey Banner" class="w-full h-full object-cover" loading="lazy"/>
 					</div>
 				}
 				<div>
@@ -168,14 +134,14 @@ templ TakeSurveyPage(user auth.User, s survey.Survey, prefills map[string]string
 								}
 								for _, q := range s.Questions {
 									if q.GroupNumber == groupIndex+1 {
-										@questionDisplay(q, prefills[q.PrefillVariable], savedAnswers)
+										@questionDisplay(q, prefills[q.PrefillVariable])
 									}
 								}
 							}
 						}
 					} else {
 						for _, q := range s.Questions {
-							@questionDisplay(q, prefills[q.PrefillVariable], savedAnswers)
+							@questionDisplay(q, prefills[q.PrefillVariable])
 						}
 					}
 				</div>
@@ -188,11 +154,10 @@ templ TakeSurveyPage(user auth.User, s survey.Survey, prefills map[string]string
 				</div>
 			</div>
 		</form>
-		<script src="/assets/scripts/take_survey.js" type="module"></script>
 	}
 }
 
-templ questionDisplay(q survey.Question, prefillValue string, savedAnswers map[string]any) {
+templ questionDisplay(q survey.Question, prefillValue string) {
 	<div class="mt-6 space-y-4">
 		<label class="block text-base font-medium text-gray-900">
 			{ q.Text }
@@ -225,7 +190,6 @@ templ questionDisplay(q survey.Question, prefillValue string, savedAnswers map[s
 											value={ option }
 											class="h-4 w-4 border-gray-300 text-green-x-dark focus:ring-green-x-dark"
 											required?={ q.IsRequired }
-											checked?={ isValueSelected(option, getGridValue(q.ID, i, savedAnswers)) }
 										/>
 									</td>
 								}
@@ -235,15 +199,15 @@ templ questionDisplay(q survey.Question, prefillValue string, savedAnswers map[s
 				</table>
 			</div>
 		case survey.Text:
-			<input type="text" name={ q.ID } value={ getStringValue(prefillValue, savedAnswers[q.ID]) } class="block w-full rounded-md border-gray-300 shadow-sm focus:border-green-x-dark focus:ring-green-x-dark sm:text-sm" required?={ q.IsRequired } readonly?={ prefillValue != "" }/>
+			<input type="text" name={ q.ID } value={ prefillValue } class="block w-full rounded-md border-gray-300 shadow-sm focus:border-green-x-dark focus:ring-green-x-dark sm:text-sm" required?={ q.IsRequired } readonly?={ prefillValue != "" }/>
 		case survey.Textarea:
-			<textarea name={ q.ID } rows="4" maxlength="500" class="block w-full rounded-md border-gray-300 shadow-sm focus:border-green-x-dark focus:ring-green-x-dark sm:text-sm" required?={ q.IsRequired } readonly?={ prefillValue != "" }>{ getStringValue(prefillValue, savedAnswers[q.ID]) }</textarea>
+			<textarea name={ q.ID } rows="4" maxlength="500" class="block w-full rounded-md border-gray-300 shadow-sm focus:border-green-x-dark focus:ring-green-x-dark sm:text-sm" required?={ q.IsRequired } readonly?={ prefillValue != "" }>{ prefillValue }</textarea>
 		case survey.MultipleChoice:
 			<fieldset class="space-y-2">
 				for _, option := range q.Options {
 					<div class="relative flex items-start">
 						<div class="flex h-6 items-center">
-							<input id={ q.ID + "-" + option } name={ q.ID } type="radio" value={ option } class="h-4 w-4 border-gray-300 text-green-x-dark focus:ring-green-x-dark" required?={ q.IsRequired } checked?={ isValueSelected(option, savedAnswers[q.ID]) }/>
+							<input id={ q.ID + "-" + option } name={ q.ID } type="radio" value={ option } class="h-4 w-4 border-gray-300 text-green-x-dark focus:ring-green-x-dark" required?={ q.IsRequired }/>
 						</div>
 						<div class="ml-3 text-sm leading-6">
 							<label for={ q.ID + "-" + option } class="font-medium text-gray-700">{ option }</label>
@@ -256,7 +220,7 @@ templ questionDisplay(q survey.Question, prefillValue string, savedAnswers map[s
 				for _, option := range q.Options {
 					<div class="relative flex items-start">
 						<div class="flex h-6 items-center">
-							<input id={ q.ID + "-" + option } name={ q.ID } type="checkbox" value={ option } class="h-4 w-4 rounded border-gray-300 text-green-x-dark focus:ring-green-x-dark" checked?={ isValueSelected(option, savedAnswers[q.ID]) }/>
+							<input id={ q.ID + "-" + option } name={ q.ID } type="checkbox" value={ option } class="h-4 w-4 rounded border-gray-300 text-green-x-dark focus:ring-green-x-dark"/>
 						</div>
 						<div class="ml-3 text-sm leading-6">
 							<label for={ q.ID + "-" + option } class="font-medium text-gray-700">{ option }</label>
@@ -268,7 +232,7 @@ templ questionDisplay(q survey.Question, prefillValue string, savedAnswers map[s
 			<select name={ q.ID } class="block w-full rounded-md border-gray-300 shadow-sm focus:border-green-x-dark focus:ring-green-x-dark sm:text-sm" required?={ q.IsRequired }>
 				<option value="">Select an option</option>
 				for _, option := range q.Options {
-					<option value={ option } selected?={ isValueSelected(option, savedAnswers[q.ID]) }>{ option }</option>
+					<option value={ option }>{ option }</option>
 				}
 			</select>
 		}

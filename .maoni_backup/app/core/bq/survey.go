@@ -32,15 +32,6 @@ type surveyCacheEntry struct {
 	expiresAt time.Time
 }
 
-// SurveyProgress represents a user's saved progress for a survey.
-type SurveyProgress struct {
-	UserID       string         `firestore:"user_id"`
-	SurveyID     string         `firestore:"survey_id"`
-	AssignmentID string         `firestore:"assignment_id"`
-	Answers      map[string]any `firestore:"answers"`
-	UpdatedAt    time.Time      `firestore:"updated_at"`
-}
-
 type SurveyStore struct {
 	client    *bigquery.Client
 	fs        *firestore.Client // Firestore client for survey definitions
@@ -658,48 +649,5 @@ func (s *SurveyStore) CheckAndManageSurveyStatus(ctx context.Context) error {
 	}
 
 	log.Println("Finished scheduled job: CheckAndManageSurveyStatus")
-	return nil
-}
-
-// --- Survey Progress ---
-
-func (s *SurveyStore) SaveProgress(ctx context.Context, userID, surveyID, assignmentID string, answers map[string]any) error {
-	progress := SurveyProgress{
-		UserID:       userID,
-		SurveyID:     surveyID,
-		AssignmentID: assignmentID,
-		Answers:      answers,
-		UpdatedAt:    web.Now(),
-	}
-
-	_, err := s.fs.Collection(collection.SurveyProgress).Doc(assignmentID).Set(ctx, progress)
-	if err != nil {
-		return fmt.Errorf("failed to save progress to firestore: %w", err)
-	}
-	return nil
-}
-
-func (s *SurveyStore) GetProgress(ctx context.Context, assignmentID string) (map[string]any, error) {
-	doc, err := s.fs.Collection(collection.SurveyProgress).Doc(assignmentID).Get(ctx)
-	if err != nil {
-		if status.Code(err) == codes.NotFound {
-			return nil, nil // No progress saved yet, which is not an error.
-		}
-		return nil, fmt.Errorf("failed to get progress from firestore: %w", err)
-	}
-
-	var progress SurveyProgress
-	if err := doc.DataTo(&progress); err != nil {
-		return nil, fmt.Errorf("failed to decode progress data: %w", err)
-	}
-
-	return progress.Answers, nil
-}
-
-func (s *SurveyStore) DeleteProgress(ctx context.Context, assignmentID string) error {
-	_, err := s.fs.Collection(collection.SurveyProgress).Doc(assignmentID).Delete(ctx)
-	if err != nil && status.Code(err) != codes.NotFound {
-		return fmt.Errorf("failed to delete progress from firestore: %w", err)
-	}
 	return nil
 }

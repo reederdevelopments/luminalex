@@ -1,8 +1,6 @@
 package base
 
 import (
-	"encoding/json"
-	"errors"
 	"fmt"
 	"maoni/app/core/auth"
 	"maoni/app/core/survey"
@@ -79,13 +77,7 @@ func (m module) viewSurveyHandler(w http.ResponseWriter, r *http.Request) error 
 	prefills["variable_4"] = specialData.Variable4
 	prefills["variable_5"] = specialData.Variable5
 
-	savedAnswers, err := m.surveyStore.GetProgress(ctx, assignmentID)
-	if err != nil {
-		// Log the error but don't fail the request. The user can just start over.
-		m.l.Printf("WARNING: failed to get survey progress for assignment %s: %v", assignmentID, err)
-	}
-
-	return TakeSurveyPage(user, s, prefills, savedAnswers).Render(ctx, w)
+	return TakeSurveyPage(user, s, prefills).Render(ctx, w)
 }
 
 func (m module) submitSurveyHandler(w http.ResponseWriter, r *http.Request) error {
@@ -183,53 +175,5 @@ func (m module) submitSurveyHandler(w http.ResponseWriter, r *http.Request) erro
 		return fmt.Errorf("failed to update special survey assignment: %w", err)
 	}
 
-	// Delete saved progress on successful submission
-	if err := m.surveyStore.DeleteProgress(ctx, assignmentID); err != nil {
-		// Log this error but don't fail the request, as the main submission succeeded.
-		m.l.Printf("WARNING: failed to delete survey progress for assignment %s after submission: %v", assignmentID, err)
-	}
-
 	return surveyThankYouPage(user).Render(ctx, w)
-}
-
-func (m module) saveSurveyProgress(w http.ResponseWriter, r *http.Request) error {
-	ctx := r.Context()
-	user := auth.FromCtx(ctx).User
-	surveyID := chi.URLParam(r, "id")
-
-	var payload struct {
-		AssignmentID string         `json:"AssignmentID"`
-		Answers      map[string]any `json:"Answers"` // Use any to handle single or multiple values
-	}
-
-	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
-		return web.NewRequestError(fmt.Errorf("invalid request body: %w", err), http.StatusBadRequest)
-	}
-
-	if payload.AssignmentID == "" {
-		return web.NewRequestError(errors.New("assignment ID is required"), http.StatusBadRequest)
-	}
-
-	// Validate that the user is allowed to save progress for this assignment
-	assignment, found, err := m.surveyStore.GetSpecialSurveyAssignment(ctx, payload.AssignmentID)
-	if err != nil {
-		return fmt.Errorf("could not validate survey assignment: %w", err)
-	}
-	if !found || assignment.UserEmail != user.Email || assignment.SurveyID != surveyID {
-		return web.NewRequestError(errors.New("unauthorized to save progress for this survey"), http.StatusForbidden)
-	}
-	if assignment.ResponseID != "" {
-		// Already submitted, don't save progress
-		w.WriteHeader(http.StatusOK)
-		return nil
-	}
-
-	// Save the progress
-	err = m.surveyStore.SaveProgress(ctx, user.ID, surveyID, payload.AssignmentID, payload.Answers)
-	if err != nil {
-		return fmt.Errorf("failed to save survey progress: %w", err)
-	}
-
-	w.WriteHeader(http.StatusOK)
-	return nil
 }

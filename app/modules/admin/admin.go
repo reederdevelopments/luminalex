@@ -341,7 +341,7 @@ func (m module) previewSurvey(w http.ResponseWriter, r *http.Request) error {
 	}
 	// The survey is not saved, so it doesn't have a real ID.
 	// We pass the parsed data directly to the survey page template.
-	return base.TakeSurveyPage(user, s, nil).Render(r.Context(), w)
+	return base.TakeSurveyPage(user, s, nil, nil).Render(r.Context(), w)
 }
 
 func (m module) toggleSurveyStatus(w http.ResponseWriter, r *http.Request) error {
@@ -676,6 +676,7 @@ func parseSurveyForm(r *http.Request) (survey.Survey, error) {
 			Text:            r.FormValue(textKey),
 			Type:            r.FormValue(fmt.Sprintf("questions[%d].Type", i)),
 			Options:         r.PostForm[fmt.Sprintf("questions[%d].Options", i)],
+			Rows:            r.PostForm[fmt.Sprintf("questions[%d].Rows", i)],
 			IsRequired:      r.FormValue(fmt.Sprintf("questions[%d].IsRequired", i)) == "true",
 			GroupNumber:     groupNumber,
 			PrefillVariable: r.FormValue(fmt.Sprintf("questions[%d].PrefillVariable", i)),
@@ -689,6 +690,15 @@ func parseSurveyForm(r *http.Request) (survey.Survey, error) {
 			}
 		}
 		q.Options = validOptions
+
+		// Filter out empty rows submitted by the form.
+		var validRows []string
+		for _, row := range q.Rows {
+			if row != "" {
+				validRows = append(validRows, row)
+			}
+		}
+		q.Rows = validRows
 
 		validQuestions = append(validQuestions, q)
 	}

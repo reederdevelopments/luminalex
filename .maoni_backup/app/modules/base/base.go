@@ -52,7 +52,6 @@ func InitModule(
 	app.Handle(http.MethodGet, "/", m.surveyLoader, stdMid(l, sessionStore.Mid)...)
 	app.Handle(http.MethodGet, "/surveys/{id}", m.viewSurveyHandler, stdMid(l, sessionStore.Mid)...)
 	app.Handle(http.MethodPost, "/surveys/{id}", m.submitSurveyHandler, stdMid(l, sessionStore.Mid)...)
-	app.Handle(http.MethodPost, "/surveys/{id}/progress", m.saveSurveyProgress, stdMid(l, sessionStore.Mid)...)
 	app.Handle(http.MethodGet, "/events", m.eventStreamHandler, stdMid(l, sessionStore.Mid)...)
 }
 

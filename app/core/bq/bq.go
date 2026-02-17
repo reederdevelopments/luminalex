@@ -52,6 +52,7 @@ func ensureSurveysTable(ctx context.Context, dataset *bigquery.Dataset) error {
 		{Name: "text", Type: bigquery.StringFieldType, Required: true},
 		{Name: "type", Type: bigquery.StringFieldType, Required: true},
 		{Name: "options", Type: bigquery.StringFieldType, Repeated: true},
+		{Name: "rows", Type: bigquery.StringFieldType, Repeated: true},
 		{Name: "is_required", Type: bigquery.BooleanFieldType, Required: true},
 		{Name: "group_number", Type: bigquery.IntegerFieldType},
 		{Name: "prefill_variable", Type: bigquery.StringFieldType},

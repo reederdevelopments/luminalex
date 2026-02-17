@@ -129,9 +129,4 @@ type Store interface {
 	CreateCategory(ctx context.Context, name string) (Category, error)
 	DeleteCategory(ctx context.Context, id string) error
 	CheckAndManageSurveyStatus(ctx context.Context) error
-
-	// Survey progress
-	SaveProgress(ctx context.Context, userID, surveyID, assignmentID string, answers map[string]any) error
-	GetProgress(ctx context.Context, assignmentID string) (map[string]any, error)
-	DeleteProgress(ctx context.Context, assignmentID string) error
 }
