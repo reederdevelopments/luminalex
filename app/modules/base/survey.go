@@ -155,11 +155,12 @@ func (m module) submitSurveyHandler(w http.ResponseWriter, r *http.Request) erro
 	}
 
 	response := survey.Response{
-		ID:          uuid.NewString(),
-		SurveyID:    surveyID,
-		UserID:      user.ID,
-		SubmittedAt: now,
-		Answers:     answers,
+		ID:           uuid.NewString(),
+		SurveyID:     surveyID,
+		UserID:       user.ID,
+		SubmittedAt:  now,
+		Answers:      answers,
+		AssignmentID: assignmentID,
 	}
 
 	if err := m.surveyStore.SaveResponse(ctx, response); err != nil {

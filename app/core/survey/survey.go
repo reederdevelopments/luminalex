@@ -81,11 +81,12 @@ type Answer struct {
 
 // Response represents a single submission of a survey.
 type Response struct {
-	ID          string    `bigquery:"id"`
-	SurveyID    string    `bigquery:"survey_id"`
-	UserID      string    `bigquery:"user_id"`
-	SubmittedAt time.Time `bigquery:"submitted_at"`
-	Answers     []Answer  `bigquery:"answers"`
+	ID           string    `bigquery:"id"`
+	SurveyID     string    `bigquery:"survey_id"`
+	UserID       string    `bigquery:"user_id"`
+	SubmittedAt  time.Time `bigquery:"submitted_at"`
+	Answers      []Answer  `bigquery:"answers"`
+	AssignmentID string    `bigquery:"assignment_id"`
 }
 
 // SpecialSurveyUser represents a user assigned to a special survey with prefill data.
@@ -102,8 +103,8 @@ type SpecialSurveyUser struct {
 }
 
 type Category struct {
-	ID   string `json:"id" firestore:"id"`
-	Name string `json:"name" firestore:"name"`
+	ID   string `json:"id" firestore:"id" bigquery:"id"`
+	Name string `json:"name" firestore:"name" bigquery:"name"`
 }
 
 type Store interface {

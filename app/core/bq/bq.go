@@ -40,6 +40,10 @@ func EnsureSchema(ctx context.Context, client *bigquery.Client, datasetID string
 		return err
 	}
 
+	if err := ensureCategoriesTable(ctx, dataset); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -95,6 +99,7 @@ func ensureResponsesTable(ctx context.Context, dataset *bigquery.Dataset) error 
 		{Name: "user_id", Type: bigquery.StringFieldType, Required: true},
 		{Name: "submitted_at", Type: bigquery.TimestampFieldType, Required: true},
 		{Name: "answers", Type: bigquery.RecordFieldType, Repeated: true, Schema: answerSchema},
+		{Name: "assignment_id", Type: bigquery.StringFieldType},
 	}
 
 	if err := createOrUpdateTable(ctx, table, schema); err != nil {
@@ -120,6 +125,21 @@ func ensureSpecialSurveysTable(ctx context.Context, dataset *bigquery.Dataset) e
 
 	if err := createOrUpdateTable(ctx, table, schema); err != nil {
 		return fmt.Errorf("special_surveys table: %w", err)
+	}
+	return nil
+}
+
+func ensureCategoriesTable(ctx context.Context, dataset *bigquery.Dataset) error {
+	log.Println("Ensuring 'categories' table exists and schema is up to date...")
+	table := dataset.Table("categories")
+
+	schema := bigquery.Schema{
+		{Name: "id", Type: bigquery.StringFieldType, Required: true},
+		{Name: "name", Type: bigquery.StringFieldType, Required: true},
+	}
+
+	if err := createOrUpdateTable(ctx, table, schema); err != nil {
+		return fmt.Errorf("categories table: %w", err)
 	}
 	return nil
 }

@@ -23,6 +23,7 @@ const (
 	surveysTable        = "surveys"
 	responsesTable      = "responses"
 	specialSurveysTable = "special_surveys"
+	categoriesTable     = "categories"
 	cacheDuration       = 5 * time.Minute // Cache surveys for 5 minutes
 )
 
@@ -530,18 +531,58 @@ func (s *SurveyStore) CreateCategory(ctx context.Context, name string) (survey.C
 		ID:   id,
 		Name: name,
 	}
+	// 1. Write to Firestore
 	_, err := s.fs.Collection(collection.Categories).Doc(id).Set(ctx, cat)
 	if err != nil {
 		return survey.Category{}, fmt.Errorf("failed to create category in firestore: %w", err)
 	}
+
+	// 2. Write a copy to BigQuery for analytics/backup.
+	go func() {
+		// Create a new context for the background task
+		bgCtx := context.Background()
+		inserter := s.client.Dataset(s.datasetID).Table(categoriesTable).Inserter()
+		if err := inserter.Put(bgCtx, &cat); err != nil {
+			log.Printf("WARNING: failed to insert category into BigQuery (firestore succeeded): %v", err)
+		}
+	}()
+
 	return cat, nil
 }
 
 func (s *SurveyStore) DeleteCategory(ctx context.Context, id string) error {
+	// 1. Delete from Firestore
 	_, err := s.fs.Collection(collection.Categories).Doc(id).Delete(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to delete category from firestore: %w", err)
 	}
+
+	// 2. Asynchronously delete from BigQuery.
+	go func() {
+		bgCtx := context.Background()
+		q := s.client.Query(fmt.Sprintf(`
+			DELETE FROM %s.%s
+			WHERE id = @id
+		`, s.datasetID, categoriesTable))
+		q.Parameters = []bigquery.QueryParameter{
+			{Name: "id", Value: id},
+		}
+
+		job, err := q.Run(bgCtx)
+		if err != nil {
+			log.Printf("WARNING: failed to run BQ delete job for category (firestore succeeded): %v", err)
+			return
+		}
+		status, err := job.Wait(bgCtx)
+		if err != nil {
+			log.Printf("WARNING: failed to wait for BQ delete job for category: %v", err)
+			return
+		}
+		if err := status.Err(); err != nil {
+			log.Printf("WARNING: BQ delete job for category failed: %v", err)
+		}
+	}()
+
 	return nil
 }
 
