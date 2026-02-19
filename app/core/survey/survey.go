@@ -54,6 +54,7 @@ type Survey struct {
 	ID            string     `json:"id" bigquery:"id" firestore:"id"`
 	Name          string     `json:"name" bigquery:"name" firestore:"name"`
 	Description   string     `json:"description" bigquery:"description" firestore:"description"`
+	Instructions  string     `json:"instructions,omitempty" bigquery:"instructions" schema:"Instructions" firestore:"instructions,omitempty"`
 	Banner        string     `json:"banner,omitempty" bigquery:"banner" schema:"Banner" firestore:"banner,omitempty"`
 	Type          string     `json:"type" bigquery:"type" schema:"Type" firestore:"type"`
 	CategoryID    string     `json:"category_id,omitempty" bigquery:"category_id" firestore:"category_id,omitempty" schema:"CategoryID"`

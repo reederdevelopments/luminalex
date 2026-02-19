@@ -22,7 +22,7 @@ func formatSurveyCloseDate(t time.Time) string {
 	if t.IsZero() {
 		return ""
 	}
-	return "Closes: " + t.In(web.GMTPlus2).Format("02 Jan 2006")
+	return "Due: " + t.In(web.GMTPlus2).Format("2 Jan 2006 at 15:04")
 }
 
 func hasQuestionsInGroup(questions []survey.Question, groupIndex int) bool {
@@ -167,7 +167,11 @@ templ TakeSurveyPage(user auth.User, s survey.Survey, prefills map[string]string
 				}
 				<div>
 					<h1 class="text-2xl font-bold tracking-tight text-gray-900 sm:text-3xl">{ s.Name }</h1>
-					if s.Description != "" {
+					if s.Instructions != "" {
+						<div class="mt-4 prose max-w-none">
+							@templ.Raw(s.Instructions)
+						</div>
+					} else if s.Description != "" {
 						<p class="mt-4 text-lg text-gray-600">{ s.Description }</p>
 					}
 				</div>

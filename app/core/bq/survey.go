@@ -117,7 +117,7 @@ func (s *SurveyStore) Update(ctx context.Context, su survey.Survey) error {
 		bgCtx := context.Background()
 		q := s.client.Query(fmt.Sprintf(`
 			UPDATE %s.%s
-			SET name = @name, description = @description, type = @type, is_enabled = @is_enabled, updated_at = @updated_at, questions = @questions, group_headings = @group_headings, banner = @banner, category_id = @category_id, survey_open = @survey_open, survey_closed = @survey_closed
+			SET name = @name, description = @description, instructions = @instructions, type = @type, is_enabled = @is_enabled, updated_at = @updated_at, questions = @questions, group_headings = @group_headings, banner = @banner, category_id = @category_id, survey_open = @survey_open, survey_closed = @survey_closed
 			WHERE id = @id
 		`, s.datasetID, surveysTable))
 
@@ -126,6 +126,7 @@ func (s *SurveyStore) Update(ctx context.Context, su survey.Survey) error {
 			{Name: "id", Value: su.ID},
 			{Name: "name", Value: su.Name},
 			{Name: "description", Value: su.Description},
+			{Name: "instructions", Value: su.Instructions},
 			{Name: "type", Value: su.Type},
 			{Name: "is_enabled", Value: su.IsEnabled},
 			{Name: "updated_at", Value: su.UpdatedAt},

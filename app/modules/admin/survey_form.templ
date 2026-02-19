@@ -4,6 +4,7 @@ package admin
 import (
 	"maoni/app/core/auth"
 	"maoni/app/core/survey"
+	"maoni/app/core/ui/icon"
 	"maoni/app/core/web"
 	"time"
 )
@@ -51,7 +52,23 @@ templ surveyForm(s survey.Survey, pageTitle, formAction string, categories []sur
 						<div class="mt-2">
 							<textarea id="description" name="Description" rows="3" class="block w-full rounded-md border-gray-300 shadow-sm focus:border-green-x-dark focus:ring-green-x-dark sm:text-sm">{ s.Description }</textarea>
 						</div>
-						<p class="mt-3 text-sm leading-6 text-gray-600">Write a few sentences about the survey.</p>
+						<p class="mt-3 text-sm leading-6 text-gray-600">Write a few sentences about the survey (for admin view).</p>
+					</div>
+					<div class="col-span-full">
+						<label for="instructions" class="block text-sm font-medium leading-6 text-gray-900">Instructions</label>
+						<p class="mt-1 text-sm text-gray-600">These instructions will be shown to the user when they take the survey. Supports basic HTML.</p>
+						<div class="mt-2">
+							<div class="flex items-center space-x-2 p-2 bg-gray-50 rounded-t-md border border-b-0 border-gray-300" id="editor-toolbar">
+								<button type="button" class="editor-btn p-1 rounded hover:bg-gray-200" data-tag="b" title="Bold">@icon.BoldIcon()</button>
+								<button type="button" class="editor-btn p-1 rounded hover:bg-gray-200" data-tag="i" title="Italic">@icon.ItalicIcon()</button>
+								<button type="button" class="editor-btn p-1 rounded hover:bg-gray-200" data-tag="a" title="Link">@icon.LinkIcon()</button>
+								<button type="button" class="editor-btn p-1 rounded hover:bg-gray-200" data-tag="ul" title="Unordered List">@icon.ListUnorderedIcon()</button>
+								<button type="button" class="editor-btn p-1 rounded hover:bg-gray-200" data-tag="ol" title="Ordered List">@icon.ListOrderedIcon()</button>
+								<button type="button" class="editor-btn p-1 rounded hover:bg-gray-200" data-tag="blockquote" title="Quote">@icon.QuoteIcon()</button>
+								<button type="button" class="editor-btn p-1 rounded hover:bg-gray-200" data-tag="code" title="Code">@icon.CodeBracketIcon()</button>
+							</div>
+							<textarea id="instructions" name="Instructions" rows="6" class="block w-full rounded-b-md border-t-0 border-gray-300 shadow-sm focus:border-green-x-dark focus:ring-green-x-dark sm:text-sm" placeholder="Enter instructions here...">@templ.Raw(s.Instructions)</textarea>
+						</div>
 					</div>
 					<div class="col-span-full">
 						<label for="banner" class="block text-sm font-medium leading-6 text-gray-900">Banner Image URL</label>

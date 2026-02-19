@@ -245,4 +245,57 @@ document.addEventListener("DOMContentLoaded", () => {
             }
         }
     });
+
+    // --- Rich Text Editor for Instructions ---
+    const editorToolbar = document.getElementById('editor-toolbar');
+    const instructionsTextarea = document.getElementById('instructions');
+
+    if (editorToolbar && instructionsTextarea) {
+        editorToolbar.addEventListener('click', e => {
+            const button = e.target.closest('.editor-btn');
+            if (!button) return;
+
+            e.preventDefault();
+            const tag = button.dataset.tag;
+            const textarea = instructionsTextarea;
+            const start = textarea.selectionStart;
+            const end = textarea.selectionEnd;
+            const selectedText = textarea.value.substring(start, end);
+
+            let replacement = '';
+            switch (tag) {
+                case 'b':
+                    replacement = `<b>${selectedText}</b>`;
+                    break;
+                case 'i':
+                    replacement = `<i>${selectedText}</i>`;
+                    break;
+                case 'a':
+                    const url = prompt("Enter the URL:");
+                    if (url) {
+                        replacement = `<a href="${url}" target="_blank" rel="noopener noreferrer" class="text-green-x-dark hover:underline">${selectedText || url}</a>`;
+                    } else {
+                        return; // User cancelled
+                    }
+                    break;
+                case 'ul':
+                    replacement = `<ul>\n\t<li>${selectedText || 'List item'}</li>\n</ul>`;
+                    break;
+                case 'ol':
+                    replacement = `<ol>\n\t<li>${selectedText || 'List item'}</li>\n</ol>`;
+                    break;
+                case 'blockquote':
+                    replacement = `<blockquote>${selectedText}</blockquote>`;
+                    break;
+                case 'code':
+                    replacement = `<code>${selectedText}</code>`;
+                    break;
+                default:
+                    return;
+            }
+
+            textarea.setRangeText(replacement, start, end, 'select');
+            textarea.focus();
+        });
+    }
 });
