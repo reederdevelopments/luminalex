@@ -7,6 +7,8 @@ import (
 	"maoni/app/core/survey"
 	"maoni/app/core/ui/icon"
 	"maoni/app/core/ui/layout"
+	"maoni/app/core/web"
+	"time"
 )
 
 // Helper functions (Standard Go functions)
@@ -14,6 +16,13 @@ import (
 
 func surveyLink(s survey.Survey) templ.SafeURL {
 	return templ.URL(fmt.Sprintf("/surveys/%s?assignment_id=%s", s.ID, s.AssignmentID))
+}
+
+func formatSurveyCloseDate(t time.Time) string {
+	if t.IsZero() {
+		return ""
+	}
+	return "Closes: " + t.In(web.GMTPlus2).Format("02 Jan 2006")
 }
 
 func hasQuestionsInGroup(questions []survey.Question, groupIndex int) bool {
@@ -129,6 +138,11 @@ templ surveyListPage(user auth.User, surveys []survey.Survey) {
 												<p class="whitespace-normal text-pretty">{ s.Description }</p>
 											</div>
 										</div>
+										if !s.SurveyClosed.IsZero() {
+											<div class="flex-none">
+												<p class="whitespace-nowrap text-sm text-gray-500">{ formatSurveyCloseDate(s.SurveyClosed) }</p>
+											</div>
+										}
 										@icon.ChevronRight()
 									</li>
 								}
@@ -204,19 +218,19 @@ templ questionDisplay(q survey.Question, prefillValue string, savedAnswers map[s
 		switch survey.QuestionType(q.Type) {
 		case survey.MultiGridRadio:
 			<div class="overflow-x-auto">
-				<table class="min-w-full text-sm text-left border-collapse">
+				<table class="w-full table-fixed text-sm text-left border-collapse">
 					<thead class="bg-gray-50">
 						<tr>
-							<th scope="col" class="py-2 px-3 border border-gray-300"></th>
+							<th scope="col" class="w-1/2 py-2 px-3 border border-gray-300"></th>
 							for _, option := range q.Options {
-								<th scope="col" class="py-2 px-3 text-center font-medium text-gray-700 border border-gray-300">{ option }</th>
+								<th scope="col" class="py-2 px-3 text-center font-medium text-gray-700 border border-gray-300 break-words">{ option }</th>
 							}
 						</tr>
 					</thead>
 					<tbody class="divide-y divide-gray-200">
 						for i, row := range q.Rows {
 							<tr class="border-t border-gray-200">
-								<td class="py-3 px-3 font-medium text-gray-800 border border-gray-300">{ row }</td>
+								<td class="py-3 px-3 font-medium text-gray-800 border border-gray-300 break-words">{ row }</td>
 								for _, option := range q.Options {
 									<td class="py-3 px-3 text-center border border-gray-300">
 										<input
@@ -290,8 +304,8 @@ templ surveyAlreadyCompletedPage(user auth.User) {
 templ surveyThankYouPage(user auth.User) {
 	@BaseLayout(user, "Thank You") {
 		<div class="text-center bg-white p-10 rounded-lg shadow">
-			<h1 class="text-2xl font-bold tracking-tight text-gray-900 sm:text-3xl">Thank you for your submission!</h1>
-			<p class="mt-4 text-lg text-gray-600">Your feedback is valuable to us.</p>
+			<h1 class="text-2xl font-bold tracking-tight text-gray-900 sm:text-3xl">Your feedback is valuable to us.</h1>
+			<p class="mt-4 text-lg text-gray-600">Have an easy day</p>
 			<div class="mt-6">
 				<a href="/" class="rounded-md bg-green-x-light px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-green-x-dark">Back to Surveys</a>
 			</div>
