@@ -205,15 +205,19 @@ templ TakeSurveyPage(user auth.User, s survey.Survey, prefills map[string]string
 					</div>
 				</div>
 			</div>
+			<div id="progress-container" class="fixed bottom-5 left-1/2 -translate-x-1/2 w-11/12 max-w-lg bg-gray-200 rounded-full h-4 shadow-lg">
+				<div id="progress-bar" class="bg-green-x-dark h-4 rounded-full transition-all duration-300" style="width: 0%"></div>
+				<span id="progress-text" class="absolute inset-0 text-center text-xs font-medium text-white leading-4">0%</span>
+			</div>
 		</form>
 		<script src="/assets/scripts/take_survey.js" type="module"></script>
 	}
 }
 
 templ questionDisplay(q survey.Question, prefillValue string, savedAnswers map[string]any) {
-	<div class="mt-6 space-y-4">
-		<label class="block text-base font-medium text-gray-900">
-			{ q.Text }
+	<div class="mt-6 space-y-4 question-block" data-question-type={ q.Type }>
+		<label class="block text-base font-medium text-gray-900 prose max-w-none">
+			@templ.Raw(q.Text)
 			if q.IsRequired {
 				<span class="text-red-600">*</span>
 			}
@@ -234,7 +238,7 @@ templ questionDisplay(q survey.Question, prefillValue string, savedAnswers map[s
 					<tbody class="divide-y divide-gray-200">
 						for i, row := range q.Rows {
 							<tr class="border-t border-gray-200">
-								<td class="py-3 px-3 font-medium text-gray-800 border border-gray-300 break-words">{ row }</td>
+								<td class="py-3 px-3 font-medium text-gray-800 border border-gray-300 break-words">@templ.Raw(row)</td>
 								for _, option := range q.Options {
 									<td class="py-3 px-3 text-center border border-gray-300">
 										<input
@@ -308,8 +312,8 @@ templ surveyAlreadyCompletedPage(user auth.User) {
 templ surveyThankYouPage(user auth.User) {
 	@BaseLayout(user, "Thank You") {
 		<div class="text-center bg-white p-10 rounded-lg shadow">
-			<h1 class="text-2xl font-bold tracking-tight text-gray-900 sm:text-3xl">Your feedback is valuable to us.</h1>
-			<p class="mt-4 text-lg text-gray-600">Have an easy day</p>
+			<h1 class="text-2xl font-bold tracking-tight text-gray-900 sm:text-3xl">Thank you for your submission.</h1>
+			<p class="mt-4 text-lg text-gray-600">Your feedback is valuable to us.</p>
 			<div class="mt-6">
 				<a href="/" class="rounded-md bg-green-x-light px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-green-x-dark">Back to Surveys</a>
 			</div>

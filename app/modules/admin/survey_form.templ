@@ -58,16 +58,26 @@ templ surveyForm(s survey.Survey, pageTitle, formAction string, categories []sur
 						<label for="instructions" class="block text-sm font-medium leading-6 text-gray-900">Instructions</label>
 						<p class="mt-1 text-sm text-gray-600">These instructions will be shown to the user when they take the survey. Supports basic HTML.</p>
 						<div class="mt-2">
-							<div class="flex items-center space-x-2 p-2 bg-gray-50 rounded-t-md border border-b-0 border-gray-300" id="editor-toolbar">
-								<button type="button" class="editor-btn p-1 rounded hover:bg-gray-200" data-tag="b" title="Bold">@icon.BoldIcon()</button>
-								<button type="button" class="editor-btn p-1 rounded hover:bg-gray-200" data-tag="i" title="Italic">@icon.ItalicIcon()</button>
-								<button type="button" class="editor-btn p-1 rounded hover:bg-gray-200" data-tag="a" title="Link">@icon.LinkIcon()</button>
-								<button type="button" class="editor-btn p-1 rounded hover:bg-gray-200" data-tag="ul" title="Unordered List">@icon.ListUnorderedIcon()</button>
-								<button type="button" class="editor-btn p-1 rounded hover:bg-gray-200" data-tag="ol" title="Ordered List">@icon.ListOrderedIcon()</button>
-								<button type="button" class="editor-btn p-1 rounded hover:bg-gray-200" data-tag="blockquote" title="Quote">@icon.QuoteIcon()</button>
-								<button type="button" class="editor-btn p-1 rounded hover:bg-gray-200" data-tag="code" title="Code">@icon.CodeBracketIcon()</button>
+							<div class="editor-toolbar flex items-center space-x-2 p-2 bg-gray-50 rounded-t-md border border-b-0 border-gray-300">
+								<button type="button" class="editor-btn p-1 rounded hover:bg-gray-200" data-command="bold" title="Bold">@icon.BoldIcon()</button>
+								<button type="button" class="editor-btn p-1 rounded hover:bg-gray-200" data-command="italic" title="Italic">@icon.ItalicIcon()</button>
+								<button type="button" class="editor-btn p-1 rounded hover:bg-gray-200" data-command="createLink" title="Link">@icon.LinkIcon()</button>
+								<button type="button" class="editor-btn p-1 rounded hover:bg-gray-200" data-command="insertUnorderedList" title="Unordered List">@icon.ListUnorderedIcon()</button>
+								<button type="button" class="editor-btn p-1 rounded hover:bg-gray-200" data-command="insertOrderedList" title="Ordered List">@icon.ListOrderedIcon()</button>
+								<button type="button" class="editor-btn p-1 rounded hover:bg-gray-200" data-command="formatBlock" data-value="blockquote" title="Quote">@icon.QuoteIcon()</button>
+								<button type="button" class="editor-btn p-1 rounded hover:bg-gray-200" data-command="wrapWithCode" title="Code">@icon.CodeBracketIcon()</button>
 							</div>
-							<textarea id="instructions" name="Instructions" rows="6" class="block w-full rounded-b-md border-t-0 border-gray-300 shadow-sm focus:border-green-x-dark focus:ring-green-x-dark sm:text-sm" placeholder="Enter instructions here...">@templ.Raw(s.Instructions)</textarea>
+							<input type="hidden" name="Instructions" id="hidden_instructions" value={ s.Instructions }/>
+							<div
+								id="instructions"
+								class="wysiwyg-editor block w-full rounded-b-md border-t-0 border border-gray-300 shadow-sm focus:outline-none focus:border-green-x-dark focus:ring-1 focus:ring-green-x-dark sm:text-sm p-2 prose max-w-none"
+								style="min-height: 10rem;"
+								contenteditable="true"
+								data-hidden-input-id="hidden_instructions"
+								placeholder="Enter instructions here..."
+							>
+								@templ.Raw(s.Instructions)
+							</div>
 						</div>
 					</div>
 					<div class="col-span-full">
@@ -155,10 +165,12 @@ templ surveyForm(s survey.Survey, pageTitle, formAction string, categories []sur
 			</div>
 		</div>
 		<div class="mt-6 flex items-center justify-end gap-x-6">
-			<button type="submit" formaction="/admin/surveys/preview" formtarget="_blank" formnovalidate class="text-sm font-semibold leading-6 text-gray-900">Preview</button>
 			<a href="/admin/surveys" class="text-sm font-semibold leading-6 text-gray-900">Cancel</a>
 			<button type="submit" class="rounded-md bg-green-x-light px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-green-x-dark focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-x-light">Save</button>
 		</div>
+		<button type="submit" formaction="/admin/surveys/preview" formtarget="_blank" formnovalidate class="fixed bottom-5 left-5 z-50 rounded-md bg-white px-3.5 py-2.5 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50">
+			Preview
+		</button>
 	</form>
 	<script src="/assets/scripts/survey_form.js" type="module"></script>
 }

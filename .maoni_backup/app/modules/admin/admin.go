@@ -579,23 +579,19 @@ func (m module) sendSurveyEmail(w http.ResponseWriter, r *http.Request, emailTyp
 		// Create a new context for the background task to avoid cancellation
 		bgCtx := context.Background()
 		for _, recipient := range uniqueRecipients {
-			// Get user's name from BigQuery first
-			name, err := m.surveyStore.GetUserNameFromBigQuery(bgCtx, recipient.UserEmail)
+			// Find user details to get their name
+			user, err := m.sessionStore.GetUserByEmail(bgCtx, recipient.UserEmail)
 			if err != nil {
-				m.l.Printf("Could not get KNOWN_AS_NAME from BigQuery for %s, falling back to Firestore user data. Error: %v", recipient.UserEmail, err)
-				// Fallback to getting name from Firestore user record
-				user, err := m.sessionStore.GetUserByEmail(bgCtx, recipient.UserEmail)
-				if err != nil {
-					m.l.Printf("Could not get user details from Firestore for %s, skipping email. Error: %v", recipient.UserEmail, err)
-					continue
-				}
-				name = user.FirstName
-				if name == "" {
-					name = user.Name
-				}
+				m.l.Printf("Could not find user details for %s, skipping email. Error: %v", recipient.UserEmail, err)
+				continue
+			}
+
+			name := user.FirstName
+			if name == "" {
+				name = user.Name
 			}
 			if name == "" {
-				name = "User" // Final fallback
+				name = "User"
 			}
 
 			surveyClosedTime := "not specified"

@@ -745,32 +745,3 @@ func (s *SurveyStore) DeleteProgress(ctx context.Context, assignmentID string) e
 	}
 	return nil
 }
-
-func (s *SurveyStore) GetUserNameFromBigQuery(ctx context.Context, email string) (string, error) {
-	q := s.client.Query(fmt.Sprintf("SELECT KNOWN_AS_NAME FROM `%s.sage_data` WHERE EMAIL_ADDRESS = @email", s.datasetID))
-	q.Parameters = []bigquery.QueryParameter{
-		{Name: "email", Value: email},
-	}
-
-	it, err := q.Read(ctx)
-	if err != nil {
-		return "", fmt.Errorf("failed to query for user name: %w", err)
-	}
-
-	var row []bigquery.Value
-	err = it.Next(&row)
-	if err == iterator.Done {
-		return "", fmt.Errorf("user with email %s not found in sage_data", email)
-	}
-	if err != nil {
-		return "", fmt.Errorf("failed to read user name from bigquery: %w", err)
-	}
-
-	if len(row) > 0 {
-		if name, ok := row[0].(string); ok {
-			return name, nil
-		}
-	}
-
-	return "", fmt.Errorf("could not parse user name from bigquery for email %s", email)
-}

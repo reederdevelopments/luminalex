@@ -44,10 +44,6 @@ func EnsureSchema(ctx context.Context, client *bigquery.Client, datasetID string
 		return err
 	}
 
-	if err := ensureSageDataTable(ctx, dataset); err != nil {
-		return err
-	}
-
 	return nil
 }
 
@@ -145,21 +141,6 @@ func ensureCategoriesTable(ctx context.Context, dataset *bigquery.Dataset) error
 
 	if err := createOrUpdateTable(ctx, table, schema); err != nil {
 		return fmt.Errorf("categories table: %w", err)
-	}
-	return nil
-}
-
-func ensureSageDataTable(ctx context.Context, dataset *bigquery.Dataset) error {
-	log.Println("Ensuring 'sage_data' table exists and schema is up to date...")
-	table := dataset.Table("sage_data")
-
-	schema := bigquery.Schema{
-		{Name: "KNOWN_AS_NAME", Type: bigquery.StringFieldType, Required: true},
-		{Name: "EMAIL_ADDRESS", Type: bigquery.StringFieldType, Required: true},
-	}
-
-	if err := createOrUpdateTable(ctx, table, schema); err != nil {
-		return fmt.Errorf("sage_data table: %w", err)
 	}
 	return nil
 }

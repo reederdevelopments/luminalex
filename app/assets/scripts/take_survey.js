@@ -12,13 +12,15 @@ document.addEventListener("DOMContentLoaded", () => {
     const assignmentIdInput = surveyForm.querySelector('input[name="assignment_id"]');
     if (!surveyId || !assignmentIdInput) {
         console.error("Could not determine survey or assignment ID for progress saving.");
-        return;
+        // We can continue for progress bar functionality
     }
-    const assignmentId = assignmentIdInput.value;
+    const assignmentId = assignmentIdInput ? assignmentIdInput.value : null;
 
     let debounceTimer;
 
     const saveProgress = () => {
+        if (!assignmentId) return; // Can't save progress without assignmentId
+
         const formData = new FormData(surveyForm);
         const data = {};
         
@@ -84,9 +86,80 @@ document.addEventListener("DOMContentLoaded", () => {
             indicator.style.opacity = '0';
         }, 2000);
     };
+    
+    // --- PROGRESS BAR & AUTOSAVE LOGIC ---
+
+    const progressBar = document.getElementById('progress-bar');
+    const progressText = document.getElementById('progress-text');
+    const hasProgressBar = progressBar && progressText;
+
+    let totalUnits = 0;
+    const questionConfigs = [];
+
+    if (hasProgressBar) {
+        const questionElements = surveyForm.querySelectorAll('.question-block');
+        questionElements.forEach(questionEl => {
+            const questionType = questionEl.dataset.questionType;
+            let units = 0;
+            if (questionType === 'multi-grid-radio') {
+                units = questionEl.querySelectorAll('tbody tr').length;
+            } else if (questionType) {
+                units = 1;
+            }
+            if (units > 0) {
+                totalUnits += units;
+                questionConfigs.push({ element: questionEl, type: questionType });
+            }
+        });
+    }
+
+    const updateProgress = () => {
+        if (!hasProgressBar) return;
+        
+        let answeredUnits = 0;
+        questionConfigs.forEach(config => {
+            const questionEl = config.element;
+            const type = config.type;
+
+            if (type === 'multi-grid-radio') {
+                const answeredRows = new Set();
+                questionEl.querySelectorAll('input[type="radio"]:checked').forEach(radio => {
+                    answeredRows.add(radio.name);
+                });
+                answeredUnits += answeredRows.size;
+            } else {
+                const inputs = questionEl.querySelectorAll('input:not([type=hidden]), textarea, select');
+                let isAnswered = false;
+                if (inputs.length > 0) {
+                    const firstInput = inputs[0];
+                    if (firstInput.type === 'checkbox' || firstInput.type === 'radio') {
+                         isAnswered = Array.from(inputs).some(input => input.checked);
+                    } else if (firstInput.tagName.toLowerCase() === 'select') {
+                        isAnswered = firstInput.value !== '';
+                    } else { // text, textarea
+                         isAnswered = firstInput.value.trim() !== '';
+                    }
+                }
+                if (isAnswered) {
+                    answeredUnits += 1;
+                }
+            }
+        });
+
+        const percentage = totalUnits > 0 ? Math.round((answeredUnits / totalUnits) * 100) : 0;
+        progressBar.style.width = `${percentage}%`;
+        progressText.textContent = `${percentage}%`;
+    };
 
     surveyForm.addEventListener('input', () => {
+        // Debounce save progress
         clearTimeout(debounceTimer);
-        debounceTimer = setTimeout(saveProgress, 1500); // Save progress 1.5 seconds after input
+        debounceTimer = setTimeout(saveProgress, 1500);
+        
+        // Update progress bar immediately
+        updateProgress();
     });
+
+    // Initial calculation on page load
+    updateProgress();
 });

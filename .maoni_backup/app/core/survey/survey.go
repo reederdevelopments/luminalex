@@ -136,7 +136,4 @@ type Store interface {
 	SaveProgress(ctx context.Context, userID, surveyID, assignmentID string, answers map[string]any) error
 	GetProgress(ctx context.Context, assignmentID string) (map[string]any, error)
 	DeleteProgress(ctx context.Context, assignmentID string) error
-
-	// User name for email
-	GetUserNameFromBigQuery(ctx context.Context, email string) (string, error)
 }
