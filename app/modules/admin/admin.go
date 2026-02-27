@@ -607,10 +607,10 @@ func (m module) sendSurveyEmail(w http.ResponseWriter, r *http.Request, emailTyp
 
 			if emailType == "create" {
 				subject = fmt.Sprintf("Community Feedback - New Survey Available")
-				body = fmt.Sprintf("You have a new survey available, please complete it when you have time.<br>The survey closes at: %s.<br><br>Regards.", surveyClosedTime)
+				body = fmt.Sprintf("You have a new survey available, please complete it by the due date.<br>The survey closes at: %s.<br>", surveyClosedTime)
 			} else { // "reminder"
 				subject = fmt.Sprintf("Community Feedback - Survey Reminder")
-				body = fmt.Sprintf("This is a reminder to complete the available survey.<br>The survey closes at: %s. <br><br>Regards.", surveyClosedTime)
+				body = fmt.Sprintf("This is a reminder to complete your outstanding surveys.<br>The survey closes at: %s.<br>", surveyClosedTime)
 			}
 
 			if err := m.emailSender.Send(recipient.UserEmail, name, subject, body, s.Name); err != nil {
