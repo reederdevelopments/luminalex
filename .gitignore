@@ -23,4 +23,8 @@ dist/
 Thumbs.db
 
 # Backup
-.maoni_backup/
+.maoni_backup
+
+# Extract
+extract.py 
+repo_context.md

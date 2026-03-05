@@ -90,8 +90,8 @@ templ surveysContent(data surveysPageData) {
 				<div class="sm:col-span-full">
 					<label for="status" class="block text-sm font-medium text-gray-700">Filter by Status</label>
 					<select id="status" name="status" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-green-x-dark focus:ring-green-x-dark sm:text-sm">
-						<option value="all" selected?={ data.StatusFilter == "all" || data.StatusFilter == "" }>All</option>
-						<option value="active" selected?={ data.StatusFilter == "active" }>Active</option>
+						<option value="all" selected?={ data.StatusFilter == "all" }>All</option>
+   			 			<option value="active" selected?={ data.StatusFilter == "active" || data.StatusFilter == "" }>Active</option>
 						<option value="inactive" selected?={ data.StatusFilter == "inactive" }>Inactive</option>
 					</select>
 				</div>
@@ -166,6 +166,19 @@ templ surveysContent(data surveysPageData) {
 												}
 											</td>
 											<td class="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-0 space-x-4">
+											<form action={ templ.URL(fmt.Sprintf("/admin/surveys/%s/copy", s.ID)) } method="POST" class="inline">
+												<button type="submit" class="text-blue-600 hover:text-blue-800">Copy</button>
+											</form>
+											<button
+												type="button"
+												class="text-red-x-dark hover:text-red-x-light"
+												hx-delete={ fmt.Sprintf("/admin/surveys/%s", s.ID) }
+												hx-confirm="Are you sure? This will permanently delete the survey definition and all associated assignments."
+												hx-target="closest tr"
+												hx-swap="outerHTML"
+											>
+												Delete
+											</button>
 												<a href={ templ.URL(fmt.Sprintf("/admin/surveys/%s/users", s.ID)) } class="text-green-x-dark hover:text-green-x-dark">Manage Recipients</a>
 												<a href={ templ.URL(fmt.Sprintf("/admin/surveys/%s/edit", s.ID)) } class="text-green-x-dark hover:text-green-x-dark">Edit<span class="sr-only">, { s.Name }</span></a>
 											</td>

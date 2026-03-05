@@ -8,6 +8,7 @@ import (
 	"maoni/app/core/events"
 	"maoni/app/core/survey"
 	"maoni/app/core/web"
+	"strings"
 	"sync"
 	"time"
 
@@ -259,10 +260,11 @@ func (s *SurveyStore) List(ctx context.Context, showInactive bool) ([]survey.Sur
 func (s *SurveyStore) ListForUser(ctx context.Context, userEmail string) ([]survey.Survey, error) {
 	var result []survey.Survey
 
+	normalizedEmail := strings.ToLower(strings.TrimSpace(userEmail))
 	// Get all special survey assignments for the user that are not yet submitted from Firestore.
 	// This query requires a composite index on (user_email, response_id). Firestore will provide a link to create it if it doesn't exist.
 	iter := s.fs.Collection(collection.SpecialSurveyAssignments).
-		Where("user_email", "==", userEmail).
+		Where("user_email", "==", normalizedEmail).
 		Where("response_id", "==", "").
 		Documents(ctx)
 
@@ -747,7 +749,7 @@ func (s *SurveyStore) DeleteProgress(ctx context.Context, assignmentID string) e
 }
 
 func (s *SurveyStore) GetUserNameFromBigQuery(ctx context.Context, email string) (string, error) {
-	q := s.client.Query(fmt.Sprintf("SELECT KNOWN_AS_NAME FROM `%s.sage_data` WHERE EMAIL_ADDRESS = @email", s.datasetID))
+	q := s.client.Query(fmt.Sprintf("SELECT KNOWN_AS_NAME FROM `%s.sage_data` WHERE LOWER(EMAIL_ADDRESS) = LOWER(@email)", s.datasetID))
 	q.Parameters = []bigquery.QueryParameter{
 		{Name: "email", Value: email},
 	}
@@ -773,4 +775,116 @@ func (s *SurveyStore) GetUserNameFromBigQuery(ctx context.Context, email string)
 	}
 
 	return "", fmt.Errorf("could not parse user name from bigquery for email %s", email)
+}
+
+func (s *SurveyStore) Delete(ctx context.Context, id string) error {
+	// 1. Delete from Firestore
+	_, err := s.fs.Collection(collection.Surveys).Doc(id).Delete(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to delete survey from firestore: %w", err)
+	}
+
+	// Invalidate cache
+	s.invalidateCache(id)
+
+	// 2. Asynchronously delete from BigQuery
+	go func() {
+		bgCtx := context.Background()
+		q := s.client.Query(fmt.Sprintf(`
+			DELETE FROM %s.%s
+			WHERE id = @id
+		`, s.datasetID, surveysTable))
+		q.Parameters = []bigquery.QueryParameter{
+			{Name: "id", Value: id},
+		}
+
+		job, err := q.Run(bgCtx)
+		if err != nil {
+			log.Printf("WARNING: failed to run BQ delete job for survey: %v", err)
+			return
+		}
+		status, err := job.Wait(bgCtx)
+		if err != nil || status.Err() != nil {
+			log.Printf("WARNING: BQ delete job for survey failed")
+		}
+	}()
+
+	return nil
+}
+
+func (s *SurveyStore) DeleteSpecialSurveyUser(ctx context.Context, surveyID, assignmentID string) error {
+	// 1. Delete from Firestore
+	_, err := s.fs.Collection(collection.SpecialSurveyAssignments).Doc(assignmentID).Delete(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to delete assignment from firestore: %w", err)
+	}
+
+	// 2. Decrement the assigned user count in the Survey document
+	surveyRef := s.fs.Collection(collection.Surveys).Doc(surveyID)
+	_, err = surveyRef.Update(ctx, []firestore.Update{
+		{Path: "assigned_user_count", Value: firestore.Increment(-1)},
+	})
+	if err != nil {
+		log.Printf("WARNING: failed to decrement assigned user count for survey %s: %v", surveyID, err)
+	}
+
+	s.invalidateCache(surveyID)
+
+	// 3. Asynchronously delete from BigQuery (Optional, for sync)
+	go func() {
+		bgCtx := context.Background()
+		q := s.client.Query(fmt.Sprintf(`DELETE FROM %s.%s WHERE assignment_id = @id`, s.datasetID, specialSurveysTable))
+		q.Parameters = []bigquery.QueryParameter{{Name: "id", Value: assignmentID}}
+		job, _ := q.Run(bgCtx)
+		if job != nil {
+			job.Wait(bgCtx)
+		}
+	}()
+
+	return nil
+}
+
+func (s *SurveyStore) SyncSurveys(ctx context.Context) error {
+	// 1. Fetch all survey IDs from Firestore
+	fsIter := s.fs.Collection(collection.Surveys).Documents(ctx)
+	fsSurveys := make(map[string]survey.Survey)
+	for {
+		doc, err := fsIter.Next()
+		if err == iterator.Done {
+			break
+		}
+		if err != nil {
+			return err
+		}
+		var su survey.Survey
+		doc.DataTo(&su)
+		fsSurveys[su.ID] = su
+	}
+
+	// 2. Fetch all survey IDs and UpdateTimes from BigQuery
+	bqQuery := s.client.Query(fmt.Sprintf("SELECT id, updated_at FROM `%s.surveys` ", s.datasetID))
+
+	// FIX: Use the iterator or use a blank identifier if logic is incomplete
+	it, err := bqQuery.Read(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to read from bigquery: %w", err)
+	}
+
+	// Example of using 'it' to avoid the compiler error:
+	for {
+		var row struct {
+			ID        string    `bigquery:"id"`
+			UpdatedAt time.Time `bigquery:"updated_at"`
+		}
+		err := it.Next(&row)
+		if err == iterator.Done {
+			break
+		}
+		if err != nil {
+			return err
+		}
+		// TODO: Compare row with fsSurveys to find mismatches
+	}
+
+	return nil
 }

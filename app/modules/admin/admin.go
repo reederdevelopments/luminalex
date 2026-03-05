@@ -78,6 +78,8 @@ func InitModule(l *log.Logger, app *web.App, sessionStore auth.Store, surveyStor
 	// Special Surveys User Management
 	app.Handle(http.MethodGet, "/admin/surveys/{id}/users", m.manageSurveyUsersLoader, adminMiddlewares...)
 	app.Handle(http.MethodPost, "/admin/surveys/{id}/users/upload", m.uploadSurveyUsers, adminMiddlewares...)
+	app.Handle(http.MethodDelete, "/admin/surveys/{id}/users/{assignmentID}", m.deleteSurveyUser, adminMiddlewares...)
+	app.Handle(http.MethodPost, "/admin/surveys/{id}/users/{assignmentID}/email", m.sendIndividualEmail, adminMiddlewares...)
 
 	// Partials for HTMX
 	app.Handle(http.MethodGet, "/admin/surveys/partials/question", m.questionPartial, adminMiddlewares...)
@@ -90,6 +92,9 @@ func InitModule(l *log.Logger, app *web.App, sessionStore auth.Store, surveyStor
 	// Email endpoints
 	app.Handle(http.MethodPost, "/admin/surveys/{id}/email/create", m.sendCreateEmail, adminMiddlewares...)
 	app.Handle(http.MethodPost, "/admin/surveys/{id}/email/reminder", m.sendReminderEmail, adminMiddlewares...)
+
+	app.Handle(http.MethodPost, "/admin/surveys/{id}/copy", m.copySurvey, adminMiddlewares...)
+	app.Handle(http.MethodDelete, "/admin/surveys/{id}", m.deleteSurvey, adminMiddlewares...)
 }
 
 func (m module) adminRedirect(w http.ResponseWriter, r *http.Request) error {
@@ -106,7 +111,7 @@ func (m module) surveysLoader(w http.ResponseWriter, r *http.Request) error {
 	user := auth.FromCtx(r.Context()).User
 	statusFilter := r.URL.Query().Get("status")
 	if statusFilter == "" {
-		statusFilter = "all"
+		statusFilter = "active"
 	}
 	nameFilter := r.URL.Query().Get("name")
 	ctx := r.Context()
@@ -145,6 +150,15 @@ func (m module) surveysLoader(w http.ResponseWriter, r *http.Request) error {
 			continue
 		}
 		filteredSurveys = append(filteredSurveys, s)
+	}
+
+	assignedCounts, err := m.surveyStore.GetAllAssignedUserCounts(ctx)
+	if err == nil {
+		for i, s := range filteredSurveys {
+			if count, ok := assignedCounts[s.ID]; ok {
+				filteredSurveys[i].AssignedUserCount = count
+			}
+		}
 	}
 
 	var surveyViews []surveyView
@@ -259,6 +273,7 @@ func (m module) addSurveyForm(w http.ResponseWriter, r *http.Request) error {
 
 func (m module) createSurvey(w http.ResponseWriter, r *http.Request) error {
 	s, err := parseSurveyForm(r)
+	s.AssignedUserCount = 0
 	if err != nil {
 		return web.NewRequestError(err, http.StatusBadRequest)
 	}
@@ -455,7 +470,7 @@ func (m module) uploadSurveyUsers(w http.ResponseWriter, r *http.Request) error 
 		user := survey.SpecialSurveyUser{
 			AssignmentID: uuid.NewString(),
 			SurveyID:     surveyID,
-			UserEmail:    record[0],
+			UserEmail:    strings.ToLower(strings.TrimSpace(record[0])),
 		}
 		if len(record) > 1 {
 			user.Variable1 = record[1]
@@ -565,8 +580,10 @@ func (m module) sendSurveyEmail(w http.ResponseWriter, r *http.Request, emailTyp
 	// Deduplicate recipients by email address.
 	uniqueRecipientsMap := make(map[string]survey.SpecialSurveyUser)
 	for _, r := range recipients {
-		if _, exists := uniqueRecipientsMap[r.UserEmail]; !exists {
-			uniqueRecipientsMap[r.UserEmail] = r
+		normalizedEmail := strings.ToLower(strings.TrimSpace(r.UserEmail))
+		if _, exists := uniqueRecipientsMap[normalizedEmail]; !exists {
+			r.UserEmail = normalizedEmail // Update the struct so downstream functions use lowercase
+			uniqueRecipientsMap[normalizedEmail] = r
 		}
 	}
 	var uniqueRecipients []survey.SpecialSurveyUser
@@ -578,6 +595,8 @@ func (m module) sendSurveyEmail(w http.ResponseWriter, r *http.Request, emailTyp
 	go func() {
 		// Create a new context for the background task to avoid cancellation
 		bgCtx := context.Background()
+		var messages []email.Message
+
 		for _, recipient := range uniqueRecipients {
 			// Get user's name from BigQuery first
 			name, err := m.surveyStore.GetUserNameFromBigQuery(bgCtx, recipient.UserEmail)
@@ -606,16 +625,36 @@ func (m module) sendSurveyEmail(w http.ResponseWriter, r *http.Request, emailTyp
 			var subject, body string
 
 			if emailType == "create" {
-				subject = fmt.Sprintf("Community Feedback - New Survey Available")
-				body = fmt.Sprintf("You have a new survey available, please complete it by the due date.<br>The survey closes at: %s.<br>", surveyClosedTime)
+				subject = "Community Feedback - New Survey Available"
+				// Use custom body if provided, else fallback to default
+				if s.EmailBodyCreate != "" {
+					body = s.EmailBodyCreate
+				} else {
+					body = fmt.Sprintf("You have a new survey available, please complete it by the due date.<br>The survey closes at: %s.<br>", surveyClosedTime)
+				}
 			} else { // "reminder"
-				subject = fmt.Sprintf("Community Feedback - Survey Reminder")
-				body = fmt.Sprintf("This is a reminder to complete your outstanding surveys.<br>The survey closes at: %s.<br>", surveyClosedTime)
+				subject = "Community Feedback - Survey Reminder"
+				// Use custom body if provided, else fallback to default
+				if s.EmailBodyReminder != "" {
+					body = s.EmailBodyReminder
+				} else {
+					body = fmt.Sprintf("This is a reminder to complete your outstanding surveys.<br>The survey closes at: %s.<br>", surveyClosedTime)
+				}
 			}
 
-			if err := m.emailSender.Send(recipient.UserEmail, name, subject, body, s.Name); err != nil {
-				m.l.Printf("Failed to send email to %s: %v", recipient.UserEmail, err)
-			}
+			// Add the newly formatted message to our batch slice
+			messages = append(messages, email.Message{
+				To:         recipient.UserEmail,
+				Name:       name,
+				Subject:    subject,
+				Body:       body,
+				SurveyName: s.Name,
+			})
+		}
+
+		// Use the new SendBatch method to dispatch all emails in one pooled connection
+		if err := m.emailSender.SendBatch(messages); err != nil {
+			m.l.Printf("Failed to send email batch: %v", err)
 		}
 	}()
 
@@ -647,6 +686,8 @@ func parseSurveyForm(r *http.Request) (survey.Survey, error) {
 		s.Type = survey.TypeSpecial
 	}
 	s.Banner = r.FormValue("Banner")
+	s.Instructions = r.FormValue("Instructions")
+	s.ThankYouMessage = r.FormValue("ThankYouMessage")
 
 	// Because unchecked checkboxes don't appear in form data, gorilla/schema won't update
 	// a field from true to false on an edit. We must manually handle them based on form value presence.
@@ -747,4 +788,115 @@ func getSurveyStatus(s survey.Survey) (string, string) {
 
 	// If we're here, it's enabled and within the open/close dates (or dates are not set).
 	return "Active", "bg-green-x-light"
+}
+
+func (m module) copySurvey(w http.ResponseWriter, r *http.Request) error {
+	id := chi.URLParam(r, "id")
+	ctx := r.Context()
+
+	// 1. Fetch the original survey
+	original, err := m.surveyStore.Get(ctx, id)
+	if err != nil {
+		return web.NewRequestError(fmt.Errorf("original survey not found"), http.StatusNotFound)
+	}
+
+	// 2. Create a new survey object based on the original
+	now := web.Now()
+	newSurvey := original
+	newSurvey.ID = uuid.NewString() // Generate a new ID
+	newSurvey.Name = fmt.Sprintf("Copy of %s", original.Name)
+	newSurvey.CreatedAt = now
+	newSurvey.UpdatedAt = now
+	newSurvey.IsEnabled = false // Disable by default to allow editing before launch
+
+	// Reset counters since we aren't copying recipients or responses
+	newSurvey.ResponseCount = 0
+	newSurvey.AssignedUserCount = 0
+
+	// 3. Ensure all questions get new IDs to avoid conflicts in BigQuery/Firestore
+	newQuestions := make([]survey.Question, len(original.Questions))
+	for i, q := range original.Questions {
+		newQuestions[i] = q
+		newQuestions[i].ID = uuid.NewString()
+	}
+	newSurvey.Questions = newQuestions
+
+	// 4. Save the new survey
+	if err := m.surveyStore.Create(ctx, newSurvey); err != nil {
+		return fmt.Errorf("failed to create copied survey: %w", err)
+	}
+
+	// 5. Redirect to the edit page of the new survey
+	w.Header().Set("X-Message", "Survey copied successfully.")
+	http.Redirect(w, r, fmt.Sprintf("/admin/surveys/%s/edit", newSurvey.ID), http.StatusSeeOther)
+	return web.ErrHandled
+}
+
+func (m module) deleteSurvey(w http.ResponseWriter, r *http.Request) error {
+	id := chi.URLParam(r, "id")
+	ctx := r.Context()
+
+	return m.surveyStore.Delete(ctx, id)
+}
+
+func (m module) deleteSurveyUser(w http.ResponseWriter, r *http.Request) error {
+	surveyID := chi.URLParam(r, "id")
+	assignmentID := chi.URLParam(r, "assignmentID")
+
+	if err := m.surveyStore.DeleteSpecialSurveyUser(r.Context(), surveyID, assignmentID); err != nil {
+		return fmt.Errorf("failed to delete user: %w", err)
+	}
+
+	w.Header().Set("X-Message", "Recipient removed successfully.")
+	w.WriteHeader(http.StatusOK)
+	return nil
+}
+
+func (m module) sendIndividualEmail(w http.ResponseWriter, r *http.Request) error {
+	surveyID := chi.URLParam(r, "id")
+	assignmentID := chi.URLParam(r, "assignmentID")
+	ctx := r.Context()
+
+	// 1. Fetch survey and assignment details
+	s, err := m.surveyStore.Get(ctx, surveyID)
+	if err != nil {
+		return web.NewRequestError(fmt.Errorf("survey not found"), http.StatusNotFound)
+	}
+
+	assignment, found, err := m.surveyStore.GetSpecialSurveyAssignment(ctx, assignmentID)
+	if err != nil || !found {
+		return web.NewRequestError(fmt.Errorf("recipient not found"), http.StatusNotFound)
+	}
+
+	// 2. Resolve the user's name (following same logic as reminder emails)
+	name, err := m.surveyStore.GetUserNameFromBigQuery(ctx, assignment.UserEmail)
+	if err != nil {
+		user, _ := m.sessionStore.GetUserByEmail(ctx, assignment.UserEmail)
+		name = user.FirstName
+		if name == "" {
+			name = user.Name
+		}
+	}
+	if name == "" {
+		name = "User"
+	}
+
+	// 3. Prepare email content (matching reminder format)
+	surveyClosedTime := "not specified"
+	if !s.SurveyClosed.IsZero() {
+		surveyClosedTime = s.SurveyClosed.In(web.GMTPlus2).Format("2 Jan 2006 at 15:04")
+	}
+
+	subject := "Community Feedback - Survey Reminder"
+	body := fmt.Sprintf("This is a reminder to complete your outstanding surveys.<br>The survey closes at: %s.<br>", surveyClosedTime)
+
+	// 4. Send the email
+	err = m.emailSender.Send(assignment.UserEmail, name, subject, body, s.Name)
+	if err != nil {
+		return fmt.Errorf("failed to send email: %w", err)
+	}
+
+	w.Header().Set("X-Message", fmt.Sprintf("Email sent to %s", assignment.UserEmail))
+	w.WriteHeader(http.StatusOK)
+	return nil
 }

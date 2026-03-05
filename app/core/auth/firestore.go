@@ -8,6 +8,7 @@ import (
 	"maoni/app/core/collection"
 	"maoni/app/core/web"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -113,7 +114,9 @@ func (f FireStore) HttpGet(ctx context.Context, now time.Time, w http.ResponseWr
 }
 
 func (f FireStore) HttpCreate(ctx context.Context, now time.Time, u goth.User, w http.ResponseWriter, r *http.Request) error {
-	iter := f.db.Collection(collection.Users).Where("Email", "==", u.Email).Documents(ctx)
+	normalizedEmail := strings.ToLower(strings.TrimSpace(u.Email))
+
+	iter := f.db.Collection(collection.Users).Where("Email", "==", normalizedEmail).Documents(ctx)
 	doc, err := iter.Next()
 
 	var user User
@@ -124,7 +127,7 @@ func (f FireStore) HttpCreate(ctx context.Context, now time.Time, u goth.User, w
 				ID:           randx.UID(),
 				FirstName:    u.FirstName,
 				LastName:     u.LastName,
-				Email:        u.Email,
+				Email:        normalizedEmail,
 				Name:         u.Name,
 				GoogleID:     u.UserID,
 				Thumbnail:    u.AvatarURL,
@@ -224,7 +227,8 @@ func (f FireStore) GetUserByEmail(ctx context.Context, email string) (User, erro
 	// Note: Caching by email isn't implemented for simplicity, but could be added.
 	// We still benefit from caching by user ID if a user is fetched multiple times via ID.
 
-	iter := f.db.Collection(collection.Users).Where("Email", "==", email).Limit(1).Documents(ctx)
+	normalizedEmail := strings.ToLower(strings.TrimSpace(email))
+	iter := f.db.Collection(collection.Users).Where("Email", "==", normalizedEmail).Limit(1).Documents(ctx)
 	doc, err := iter.Next()
 	if err != nil {
 		if err == iterator.Done {

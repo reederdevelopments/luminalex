@@ -1,7 +1,9 @@
 module.exports = {
 	content: ["./**/*.templ", "./**/*.js", "!./**/node_modules/**"],
 	theme: {
-		fontFamily: {},
+		fontFamily: {
+            sans: ['Nexa', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+        },
 		data: {
 			enabled: 'enabled~="true"',
 		},

@@ -41,33 +41,36 @@ templ groupHeadingInput(heading string, index int) {
 		<label for={ fmt.Sprintf("group_heading_editor_%d", index) } class="block text-sm font-semibold leading-6 text-gray-900">
 			{ fmt.Sprintf("Group %d Heading", index + 1) }
 		</label>
-		<div class="mt-2">
-			<div class="editor-toolbar flex items-center space-x-2 p-2 bg-gray-50 rounded-t-md border border-b-0 border-gray-300">
-				<button type="button" class="editor-btn p-1 rounded hover:bg-gray-200" data-command="bold" title="Bold">@icon.BoldIcon()</button>
-				<button type="button" class="editor-btn p-1 rounded hover:bg-gray-200" data-command="italic" title="Italic">@icon.ItalicIcon()</button>
-				<button type="button" class="editor-btn p-1 rounded hover:bg-gray-200" data-command="underline" title="Underline">@icon.UnderlineIcon()</button>
-				<div class="h-4 border-l border-gray-300 mx-1"></div>
-				<select class="editor-font-size-selector bg-transparent border-none rounded-md text-sm p-1 hover:bg-gray-200 focus:ring-0" title="Font Size">
-					<option value="" disabled selected>Size</option>
-					<option value="1">Tiny</option>
-					<option value="2">Small</option>
-					<option value="3">Normal</option>
-					<option value="4">Large</option>
-					<option value="5">XL</option>
-					<option value="6">XXL</option>
-				</select>
-				<div class="h-4 border-l border-gray-300 mx-1"></div>
-				<button type="button" class="editor-btn p-1 rounded hover:bg-gray-200" data-command="createLink" title="Link">@icon.LinkIcon()</button>
-				<button type="button" class="editor-btn p-1 rounded hover:bg-gray-200" data-command="insertUnorderedList" title="Unordered List">@icon.ListUnorderedIcon()</button>
-				<button type="button" class="editor-btn p-1 rounded hover:bg-gray-200" data-command="insertOrderedList" title="Ordered List">@icon.ListOrderedIcon()</button>
-				<button type="button" class="editor-btn p-1 rounded hover:bg-gray-200" data-command="formatBlock" data-value="blockquote" title="Quote">@icon.QuoteIcon()</button>
-				<button type="button" class="editor-btn p-1 rounded hover:bg-gray-200" data-command="wrapWithCode" title="Code">@icon.CodeBracketIcon()</button>
-			</div>
-			<div class="flex items-start gap-2">
+		
+		<div class="mt-2 flex items-end gap-3">
+			<div class="flex-grow min-w-0">
+				<div class="editor-toolbar flex items-center space-x-2 p-2 bg-gray-50 rounded-t-md border border-b-0 border-gray-300">
+					<button type="button" class="editor-btn p-1 rounded hover:bg-gray-200" data-command="bold" title="Bold">@icon.BoldIcon()</button>
+					<button type="button" class="editor-btn p-1 rounded hover:bg-gray-200" data-command="italic" title="Italic">@icon.ItalicIcon()</button>
+					<button type="button" class="editor-btn p-1 rounded hover:bg-gray-200" data-command="underline" title="Underline">@icon.UnderlineIcon()</button>
+					<div class="h-4 border-l border-gray-300 mx-1"></div>
+					<select class="editor-font-size-selector bg-transparent border-none rounded-md text-sm p-1 hover:bg-gray-200 focus:ring-0" title="Font Size">
+						<option value="" disabled selected>Size</option>
+						<option value="1">Tiny</option>
+						<option value="2">Small</option>
+						<option value="3">Normal</option>
+						<option value="4">Large</option>
+						<option value="5">XL</option>
+						<option value="6">XXL</option>
+					</select>
+					<div class="h-4 border-l border-gray-300 mx-1"></div>
+					<button type="button" class="editor-btn p-1 rounded hover:bg-gray-200" data-command="createLink" title="Link">@icon.LinkIcon()</button>
+					<button type="button" class="editor-btn p-1 rounded hover:bg-gray-200" data-command="insertUnorderedList" title="Unordered List">@icon.ListUnorderedIcon()</button>
+					<button type="button" class="editor-btn p-1 rounded hover:bg-gray-200" data-command="insertOrderedList" title="Ordered List">@icon.ListOrderedIcon()</button>
+					<button type="button" class="editor-btn p-1 rounded hover:bg-gray-200" data-command="formatBlock" data-value="blockquote" title="Quote">@icon.QuoteIcon()</button>
+					<button type="button" class="editor-btn p-1 rounded hover:bg-gray-200" data-command="wrapWithCode" title="Code">@icon.CodeBracketIcon()</button>
+				</div>
+				
 				<input type="hidden" name="GroupHeadings" id={ fmt.Sprintf("hidden_group_heading_%d", index) } value={ heading }/>
+				
 				<div
 					id={ fmt.Sprintf("group_heading_editor_%d", index) }
-					class="wysiwyg-editor block w-full rounded-b-md border-t-0 border border-gray-300 shadow-sm focus:outline-none focus:border-green-x-dark focus:ring-1 focus:ring-green-x-dark sm:text-sm p-2 prose max-w-none"
+					class="wysiwyg-editor block w-full rounded-b-md border border-gray-300 shadow-sm focus:outline-none focus:border-green-x-dark focus:ring-1 focus:ring-green-x-dark sm:text-sm p-2 prose max-w-none"
 					style="min-height: 5rem;"
 					contenteditable="true"
 					data-hidden-input-id={ fmt.Sprintf("hidden_group_heading_%d", index) }
@@ -75,10 +78,11 @@ templ groupHeadingInput(heading string, index int) {
 				>
 					@templ.Raw(heading)
 				</div>
-				<button type="button" class="remove-group-heading-btn text-red-x-dark hover:text-red-x-light mt-2">
-					@icon.Trash()
-				</button>
 			</div>
+
+			<button type="button" class="remove-group-heading-btn text-red-600 hover:text-red-500 mb-2 flex-shrink-0" title="Remove Heading">
+				@icon.Trash()
+			</button>
 		</div>
 	</div>
 }

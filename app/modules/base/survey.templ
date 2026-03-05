@@ -204,6 +204,25 @@ templ TakeSurveyPage(user auth.User, s survey.Survey, prefills map[string]string
 						</button>
 					</div>
 				</div>
+				if s.AssignmentID == "" { 
+                <div class="mt-12 p-6 border-2 border-dashed border-blue-300 rounded-lg bg-blue-50">
+                    <div class="flex items-center gap-2 mb-4 text-blue-700">
+                        @icon.ExpandIcon() // Or any informative icon
+                        <h3 class="text-lg font-bold">Thank You Message Preview</h3>
+                    </div>
+                    <div class="text-center bg-white p-10 rounded-lg shadow-inner border border-gray-200">
+                        if s.ThankYouMessage != "" {
+                            <div class="prose max-w-none mx-auto">
+                                @templ.Raw(s.ThankYouMessage)
+                            </div>
+                        } else {
+                            <h1 class="text-2xl font-bold tracking-tight text-gray-900 sm:text-3xl">Thank you for your valuable feedback...</h1>
+                            <p class="mt-4 text-lg text-gray-600">Have an easy day</p>
+                        }
+                    </div>
+                    <p class="mt-4 text-xs text-blue-500 italic text-center">Note: This section is only visible during preview and will not appear to the final user here.</p>
+                </div>
+            }
 			</div>
 			<div id="progress-container" class="fixed bottom-5 left-1/2 -translate-x-1/2 w-11/12 max-w-lg bg-gray-200 rounded-full h-4 shadow-lg">
 				<div id="progress-bar" class="bg-green-x-dark h-4 rounded-full transition-all duration-300" style="width: 0%"></div>
@@ -216,7 +235,7 @@ templ TakeSurveyPage(user auth.User, s survey.Survey, prefills map[string]string
 
 templ questionDisplay(q survey.Question, prefillValue string, savedAnswers map[string]any) {
 	<div class="mt-6 space-y-4 question-block" data-question-type={ q.Type }>
-		<label class="block text-base font-medium text-gray-900 prose max-w-none">
+		<label class="flex items-baseline gap-1 text-base font-medium text-gray-900 prose max-w-none">
 			@templ.Raw(q.Text)
 			if q.IsRequired {
 				<span class="text-red-600">*</span>
@@ -259,7 +278,7 @@ templ questionDisplay(q survey.Question, prefillValue string, savedAnswers map[s
 		case survey.Text:
 			<input type="text" name={ q.ID } value={ getStringValue(prefillValue, savedAnswers[q.ID]) } class="block w-full rounded-md border-gray-300 shadow-sm focus:border-green-x-dark focus:ring-green-x-dark sm:text-sm" required?={ q.IsRequired } readonly?={ prefillValue != "" }/>
 		case survey.Textarea:
-			<textarea name={ q.ID } rows="4" maxlength="500" class="block w-full rounded-md border-gray-300 shadow-sm focus:border-green-x-dark focus:ring-green-x-dark sm:text-sm" required?={ q.IsRequired } readonly?={ prefillValue != "" }>{ getStringValue(prefillValue, savedAnswers[q.ID]) }</textarea>
+			<textarea name={ q.ID } rows="4" maxlength="1000" class="block w-full rounded-md border-gray-300 shadow-sm focus:border-green-x-dark focus:ring-green-x-dark sm:text-sm" required?={ q.IsRequired } readonly?={ prefillValue != "" }>{ getStringValue(prefillValue, savedAnswers[q.ID]) }</textarea>
 		case survey.MultipleChoice:
 			<fieldset class="space-y-2">
 				for _, option := range q.Options {
@@ -309,11 +328,17 @@ templ surveyAlreadyCompletedPage(user auth.User) {
 	}
 }
 
-templ surveyThankYouPage(user auth.User) {
+templ surveyThankYouPage(user auth.User, s survey.Survey) { // Update signature to accept survey
 	@BaseLayout(user, "Thank You") {
 		<div class="text-center bg-white p-10 rounded-lg shadow">
-			<h1 class="text-2xl font-bold tracking-tight text-gray-900 sm:text-3xl">Thank you for your valuable feedback, it helps make Unifi better.</h1>
-			<p class="mt-4 text-lg text-gray-600">Have an easy day</p>
+			if s.ThankYouMessage != "" {
+				<div class="prose max-w-none mx-auto">
+					@templ.Raw(s.ThankYouMessage)
+				</div>
+			} else {
+				<h1 class="text-2xl font-bold tracking-tight text-gray-900 sm:text-3xl">Thank you for your valuable feedback, it helps make Unifi better.</h1>
+				<p class="mt-4 text-lg text-gray-600">Have an easy day</p>
+			}
 			<div class="mt-6">
 				<a href="/" class="rounded-md bg-green-x-light px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-green-x-dark">Back to Surveys</a>
 			</div>

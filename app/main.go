@@ -234,6 +234,30 @@ func run(l *log.Logger) error {
 		serverErr <- server.ListenAndServe()
 	}()
 
+	go func() {
+		statusTicker := time.NewTicker(1 * time.Minute)
+		syncTicker := time.NewTicker(5 * time.Minute) // New hourly ticker
+
+		defer statusTicker.Stop()
+		defer syncTicker.Stop()
+
+		for {
+			select {
+			case <-statusTicker.C:
+				surveyStore.CheckAndManageSurveyStatus(ctx)
+			case <-syncTicker.C:
+				l.Println("Starting hourly Firestore-BQ sync...")
+				jobCtx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+				if err := surveyStore.SyncSurveys(jobCtx); err != nil {
+					l.Printf("ERROR: Sync failed: %v", err)
+				}
+				cancel()
+			case <-stopJobs:
+				return
+			}
+		}
+	}()
+
 	select {
 	case err := <-serverErr:
 		if !errors.Is(err, http.ErrServerClosed) {

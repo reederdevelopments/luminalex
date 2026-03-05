@@ -80,6 +80,64 @@ templ surveyForm(s survey.Survey, pageTitle, formAction string, categories []sur
 							</div>
 						</div>
 					</div>
+
+					<div class="col-span-full">
+						<label class="block text-sm font-medium leading-6 text-gray-900">Send All Emailer (Invitation)</label>
+						<div class="mt-2 w-full">
+							@editorToolbar("EmailBodyCreate")
+							<input type="hidden" name="EmailBodyCreate" id="hidden_email_create" value={ s.EmailBodyCreate }/>
+							<div 
+								id="email_create_editor" 
+								class="wysiwyg-editor block w-full rounded-b-md border border-t-0 border-gray-300 p-2 prose max-w-none shadow-sm focus:outline-none focus:border-green-x-dark focus:ring-1 focus:ring-green-x-dark" 
+								contenteditable="true" 
+								data-hidden-input-id="hidden_email_create"
+								style="min-height: 10rem;"
+							>
+								@templ.Raw(s.EmailBodyCreate)
+							</div>
+						</div>
+					</div>
+
+					<div class="col-span-full mt-6"> <label class="block text-sm font-medium leading-6 text-gray-900">Reminder Emailer</label>
+						<div class="mt-2 w-full">
+							@editorToolbar("EmailBodyReminder")
+							<input type="hidden" name="EmailBodyReminder" id="hidden_email_reminder" value={ s.EmailBodyReminder }/>
+							<div 
+								id="email_reminder_editor" 
+								class="wysiwyg-editor block w-full rounded-b-md border border-t-0 border-gray-300 p-2 prose max-w-none shadow-sm focus:outline-none focus:border-green-x-dark focus:ring-1 focus:ring-green-x-dark" 
+								contenteditable="true" 
+								data-hidden-input-id="hidden_email_reminder"
+								style="min-height: 10rem;"
+							>
+								@templ.Raw(s.EmailBodyReminder)
+							</div>
+						</div>
+					</div>
+
+					<div class="col-span-full">
+						<label for="thank_you_message" class="block text-sm font-medium leading-6 text-gray-900">Thank You Message</label>
+						<p class="mt-1 text-sm text-gray-600">This message is shown after a user submits the survey. Supports basic HTML.</p>
+						<div class="mt-2">
+							<div class="editor-toolbar flex items-center space-x-2 p-2 bg-gray-50 rounded-t-md border border-b-0 border-gray-300">
+								<button type="button" class="editor-btn p-1 rounded hover:bg-gray-200" data-command="bold" title="Bold">@icon.BoldIcon()</button>
+								<button type="button" class="editor-btn p-1 rounded hover:bg-gray-200" data-command="italic" title="Italic">@icon.ItalicIcon()</button>
+								<button type="button" class="editor-btn p-1 rounded hover:bg-gray-200" data-command="createLink" title="Link">@icon.LinkIcon()</button>
+								<button type="button" class="editor-btn p-1 rounded hover:bg-gray-200" data-command="insertUnorderedList" title="Unordered List">@icon.ListUnorderedIcon()</button>
+								<button type="button" class="editor-btn p-1 rounded hover:bg-gray-200" data-command="insertOrderedList" title="Ordered List">@icon.ListOrderedIcon()</button>
+							</div>
+							<input type="hidden" name="ThankYouMessage" id="hidden_thank_you" value={ s.ThankYouMessage }/>
+							<div
+								id="thank_you_message"
+								class="wysiwyg-editor block w-full rounded-b-md border-t-0 border border-gray-300 shadow-sm focus:outline-none focus:border-green-x-dark focus:ring-1 focus:ring-green-x-dark sm:text-sm p-2 prose max-w-none"
+								style="min-height: 8rem;"
+								contenteditable="true"
+								data-hidden-input-id="hidden_thank_you"
+								placeholder="Enter custom thank you message here..."
+							>
+								@templ.Raw(s.ThankYouMessage)
+							</div>
+						</div>
+					</div>
 					<div class="col-span-full">
 						<label for="banner" class="block text-sm font-medium leading-6 text-gray-900">Banner Image URL</label>
 						<div class="mt-2">
@@ -173,4 +231,27 @@ templ surveyForm(s survey.Survey, pageTitle, formAction string, categories []sur
 		</button>
 	</form>
 	<script src="/assets/scripts/survey_form.js" type="module"></script>
+}
+
+templ editorToolbar(targetID string) {
+	<div class="editor-toolbar flex items-center space-x-2 p-2 bg-gray-50 rounded-t-md border border-b-0 border-gray-300">
+		<button type="button" class="editor-btn p-1 rounded hover:bg-gray-200" data-command="bold" title="Bold">@icon.BoldIcon()</button>
+		<button type="button" class="editor-btn p-1 rounded hover:bg-gray-200" data-command="italic" title="Italic">@icon.ItalicIcon()</button>
+		<div class="h-4 border-l border-gray-300 mx-1"></div>
+		
+		<select class="editor-font-size-selector bg-transparent border-none rounded-md text-sm p-1 hover:bg-gray-200 focus:ring-0" title="Font Size">
+			<option value="" disabled selected>Size</option>
+			<option value="1">Tiny</option>
+			<option value="2">Small</option>
+			<option value="3">Normal</option>
+			<option value="4">Large</option>
+			<option value="5">XL</option>
+			<option value="6">XXL</option>
+		</select>
+		
+		<div class="h-4 border-l border-gray-300 mx-1"></div>
+		<button type="button" class="editor-btn p-1 rounded hover:bg-gray-200" data-command="createLink" title="Link">@icon.LinkIcon()</button>
+		<button type="button" class="editor-btn p-1 rounded hover:bg-gray-200" data-command="insertUnorderedList" title="Unordered List">@icon.ListUnorderedIcon()</button>
+		<button type="button" class="editor-btn p-1 rounded hover:bg-gray-200" data-command="insertOrderedList" title="Ordered List">@icon.ListOrderedIcon()</button>
+	</div>
 }

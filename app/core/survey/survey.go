@@ -51,27 +51,30 @@ func (q *Question) Save() (map[string]bigquery.Value, string, error) {
 
 // Survey represents a survey with its questions.
 type Survey struct {
-	ID            string     `json:"id" bigquery:"id" firestore:"id"`
-	Name          string     `json:"name" bigquery:"name" firestore:"name"`
-	Description   string     `json:"description" bigquery:"description" firestore:"description"`
-	Instructions  string     `json:"instructions,omitempty" bigquery:"instructions" schema:"Instructions" firestore:"instructions,omitempty"`
-	Banner        string     `json:"banner,omitempty" bigquery:"banner" schema:"Banner" firestore:"banner,omitempty"`
-	Type          string     `json:"type" bigquery:"type" schema:"Type" firestore:"type"`
-	CategoryID    string     `json:"category_id,omitempty" bigquery:"category_id" firestore:"category_id,omitempty" schema:"CategoryID"`
-	IsEnabled     bool       `json:"is_enabled" bigquery:"is_enabled" firestore:"is_enabled"`
-	SurveyOpen    time.Time  `json:"survey_open,omitempty" bigquery:"survey_open" firestore:"survey_open,omitempty" schema:"SurveyOpen"`
-	SurveyClosed  time.Time  `json:"survey_closed,omitempty" bigquery:"survey_closed" firestore:"survey_closed,omitempty" schema:"SurveyClosed"`
-	CreatedAt     time.Time  `json:"created_at" schema:"-" bigquery:"created_at" firestore:"created_at"`
-	UpdatedAt     time.Time  `json:"updated_at" schema:"-" bigquery:"updated_at" firestore:"updated_at"`
-	Questions     []Question `json:"questions" schema:"questions" bigquery:"questions" firestore:"questions"`
-	GroupHeadings []string   `json:"group_headings" bigquery:"group_headings" schema:"GroupHeadings" firestore:"group_headings"`
+	ID              string     `json:"id" bigquery:"id" firestore:"id"`
+	Name            string     `json:"name" bigquery:"name" firestore:"name"`
+	Description     string     `json:"description" bigquery:"description" firestore:"description"`
+	Instructions    string     `json:"instructions,omitempty" bigquery:"instructions" schema:"Instructions" firestore:"instructions,omitempty"`
+	ThankYouMessage string     `json:"thank_you_message,omitempty" bigquery:"thank_you_message" schema:"ThankYouMessage" firestore:"thank_you_message,omitempty"`
+	Banner          string     `json:"banner,omitempty" bigquery:"banner" schema:"Banner" firestore:"banner,omitempty"`
+	Type            string     `json:"type" bigquery:"type" schema:"Type" firestore:"type"`
+	CategoryID      string     `json:"category_id,omitempty" bigquery:"category_id" firestore:"category_id,omitempty" schema:"CategoryID"`
+	IsEnabled       bool       `json:"is_enabled" bigquery:"is_enabled" firestore:"is_enabled"`
+	SurveyOpen      time.Time  `json:"survey_open,omitempty" bigquery:"survey_open" firestore:"survey_open,omitempty" schema:"SurveyOpen"`
+	SurveyClosed    time.Time  `json:"survey_closed,omitempty" bigquery:"survey_closed" firestore:"survey_closed,omitempty" schema:"SurveyClosed"`
+	CreatedAt       time.Time  `json:"created_at" schema:"-" bigquery:"created_at" firestore:"created_at"`
+	UpdatedAt       time.Time  `json:"updated_at" schema:"-" bigquery:"updated_at" firestore:"updated_at"`
+	Questions       []Question `json:"questions" schema:"questions" bigquery:"questions" firestore:"questions"`
+	GroupHeadings   []string   `json:"group_headings" bigquery:"group_headings" schema:"GroupHeadings" firestore:"group_headings"`
 	// This field is for display purposes only, not stored in BQ.
 	ResponseCount     int `json:"response_count,omitempty" bigquery:"-" firestore:"response_count,omitempty"`
 	AssignedUserCount int `json:"assigned_user_count,omitempty" bigquery:"-" firestore:"assigned_user_count,omitempty"`
 	// AssignmentID is used for special surveys to identify a unique assignment for a user.
 	AssignmentID string `json:"assignment_id,omitempty" bigquery:"-" firestore:"-"`
 	// PrefillData holds variables for a special survey assignment.
-	PrefillData map[string]string `json:"prefill_data,omitempty" bigquery:"-" firestore:"-"`
+	PrefillData       map[string]string `json:"prefill_data,omitempty" bigquery:"-" firestore:"-"`
+	EmailBodyCreate   string            `json:"email_body_create,omitempty" bigquery:"email_body_create" schema:"EmailBodyCreate" firestore:"email_body_create,omitempty"`
+	EmailBodyReminder string            `json:"email_body_reminder,omitempty" bigquery:"email_body_reminder" schema:"EmailBodyReminder" firestore:"email_body_reminder,omitempty"`
 }
 
 // Answer represents a user's answer to a single question.
@@ -112,11 +115,14 @@ type Store interface {
 	Create(ctx context.Context, s Survey) error
 	Update(ctx context.Context, s Survey) error
 	Get(ctx context.Context, id string) (Survey, error)
+	Delete(ctx context.Context, id string) error
 	List(ctx context.Context, showInactive bool) ([]Survey, error)
 	ListForUser(ctx context.Context, userEmail string) ([]Survey, error)
 	SaveResponse(ctx context.Context, r Response) error
 	GetResponseCount(ctx context.Context, surveyID string) (int, error)
 	GetAllResponseCounts(ctx context.Context) (map[string]int, error)
+
+	SyncSurveys(ctx context.Context) error
 
 	// Special Surveys
 	AddSpecialSurveyUsers(ctx context.Context, users []SpecialSurveyUser) error
@@ -125,6 +131,7 @@ type Store interface {
 	UpdateSpecialSurveyUserResponse(ctx context.Context, assignmentID, responseID string) error
 	GetSpecialSurveyUserCount(ctx context.Context, surveyID string) (int, error)
 	GetAllAssignedUserCounts(ctx context.Context) (map[string]int, error)
+	DeleteSpecialSurveyUser(ctx context.Context, surveyID, assignmentID string) error
 
 	// Categories
 	ListCategories(ctx context.Context) ([]Category, error)

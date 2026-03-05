@@ -8,6 +8,7 @@ import (
 	"maoni/app/core/survey"
 	"maoni/app/core/web"
 	"net/http"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
@@ -65,7 +66,7 @@ func (m module) viewSurveyHandler(w http.ResponseWriter, r *http.Request) error 
 	if err != nil {
 		return fmt.Errorf("checking special survey status for user: %w", err)
 	}
-	if !found || specialData.UserEmail != user.Email {
+	if !found || strings.ToLower(specialData.UserEmail) != strings.ToLower(user.Email) {
 		return web.NewRequestError(fmt.Errorf("you are not assigned to this survey"), http.StatusForbidden)
 	}
 	if specialData.ResponseID != "" {
@@ -176,7 +177,7 @@ func (m module) submitSurveyHandler(w http.ResponseWriter, r *http.Request) erro
 	if err != nil {
 		return fmt.Errorf("validating assignment: %w", err)
 	}
-	if !found || assignment.UserEmail != user.Email {
+	if !found || strings.ToLower(assignment.UserEmail) != strings.ToLower(user.Email) {
 		return web.NewRequestError(fmt.Errorf("invalid assignment for user"), http.StatusForbidden)
 	}
 
@@ -190,7 +191,7 @@ func (m module) submitSurveyHandler(w http.ResponseWriter, r *http.Request) erro
 		m.l.Printf("WARNING: failed to delete survey progress for assignment %s after submission: %v", assignmentID, err)
 	}
 
-	return surveyThankYouPage(user).Render(ctx, w)
+	return surveyThankYouPage(user, s).Render(ctx, w)
 }
 
 func (m module) saveSurveyProgress(w http.ResponseWriter, r *http.Request) error {
@@ -216,7 +217,7 @@ func (m module) saveSurveyProgress(w http.ResponseWriter, r *http.Request) error
 	if err != nil {
 		return fmt.Errorf("could not validate survey assignment: %w", err)
 	}
-	if !found || assignment.UserEmail != user.Email || assignment.SurveyID != surveyID {
+	if !found || strings.ToLower(assignment.UserEmail) != strings.ToLower(user.Email) || assignment.SurveyID != surveyID {
 		return web.NewRequestError(errors.New("unauthorized to save progress for this survey"), http.StatusForbidden)
 	}
 	if assignment.ResponseID != "" {
