@@ -32,7 +32,7 @@ RUN tailwindcss -c ./tailwind.config.js -i ./in.css -o ./app/assets/styles/main.
 # 3. Compile the Go binary for a minimal Linux environment
 # The -a flag forces rebuilding of packages that are already up-to-date.
 # -ldflags "-s -w" strips debugging information, reducing binary size.
-RUN CGO_ENABLED=0 GOOS=linux go build -a -ldflags "-s -w" -o /maoni ./app
+RUN CGO_ENABLED=0 GOOS=linux go build -a -ldflags "-s -w" -o /ujuzi_reloaded ./app
 
 # ---- Stage 2: Final Image ----
 # This stage creates the final, minimal image for production.
@@ -45,10 +45,10 @@ RUN apk --no-cache add ca-certificates
 WORKDIR /root/
 
 # Copy the compiled binary from the 'builder' stage
-COPY --from=builder /maoni .
+COPY --from=builder /ujuzi_reloaded .
 
 # Expose the port the app runs on (optional, but good practice)
 EXPOSE 3080
 
 # The command to run the application
-CMD ["./maoni"]
+CMD ["./ujuzi_reloaded"]

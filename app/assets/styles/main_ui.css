@@ -1,0 +1,155 @@
+:root {
+    --hl: #60C3AD;
+    --green-x-light: #4AB8A1;
+    --red-x-light: #A52022;
+    --anim-easing: cubic-bezier(0.16, 1, 0.3, 1); /* Ultra smooth ease-out */
+}
+
+/* Base Structural Animations */
+#main-view-container {
+    transition: left 0.6s var(--anim-easing), transform 0.6s var(--anim-easing);
+}
+
+#platform-menu {
+    transform: translateX(-100%); /* <--- Added: Default Hidden State */
+    transition: transform 0.6s var(--anim-easing);
+}
+
+.screen-edge-tab {
+    transition: transform 0.6s var(--anim-easing), opacity 0.4s ease-out;
+}
+
+/* Sidebar Active States */
+body[data-sidebar="active"] #main-view-container { 
+    left: calc(18vw + 1rem); 
+    transform: scale(0.985); /* Smooth depth recession */
+}
+
+body[data-sidebar="active"] #platform-menu { 
+    transform: translateX(0); 
+}
+
+body[data-sidebar="active"] .screen-edge-tab { 
+    transform: translateX(-100%); 
+    opacity: 0;
+    pointer-events: none;
+}
+
+/* Custom Accordion Triggers to supplement Tailwind */
+.accordion-section.active .accordion-content { 
+    max-height: 350px; 
+}
+.accordion-section.active .accordion-icon { 
+    transform: rotate(180deg); 
+}
+.accordion-section.active .accordion-header { 
+    background-color: #f9fafb; 
+    border-left: 3px solid var(--hl); 
+}
+.accordion-section.active .accordion-header span.text-gray-600 {
+    color: var(--hl);
+}
+
+/* Custom JS Generated Components */
+.search-result-item {
+    padding: 0.75rem 1rem;
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: #4b5563; 
+    cursor: pointer;
+    border-bottom: 1px solid #f3f4f6; 
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    transition: all 0.2s ease;
+}
+.search-result-item:last-child { 
+    border-bottom: none; 
+}
+.search-result-item:hover {
+    background-color: rgba(96, 195, 173, 0.1);
+    border-left: 3px solid var(--hl);
+    padding-left: 1.25rem;
+    color: var(--hl);
+}
+.search-type-tag { 
+    font-size: 0.6rem; 
+    color: #9ca3af; 
+    float: right; 
+}
+
+/* Custom Scrollbars */
+.hide-scrollbar::-webkit-scrollbar {
+    width: 4px;
+}
+.hide-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+}
+.hide-scrollbar::-webkit-scrollbar-thumb {
+    background-color: #e5e7eb;
+    border-radius: 10px;
+}
+
+/* Native UI Preloader */
+.loader {
+    --color-1: var(--hl); 
+    --color-2: var(--red-x-light); 
+    --size: 3.25px;
+    width: calc(175 * var(--size)); height: calc(80 * var(--size)); display: block; margin: auto;
+    background-image:
+      radial-gradient(circle calc(25 * var(--size)) at calc(25 * var(--size)) calc(25 * var(--size)), var(--color-1) 100%, transparent 0),
+      radial-gradient(circle calc(50 * var(--size)) at calc(50 * var(--size)) calc(50 * var(--size)), var(--color-1) 100%, transparent 0),
+      radial-gradient(circle calc(25 * var(--size)) at calc(25 * var(--size)) calc(25 * var(--size)), var(--color-1) 100%, transparent 0),
+      linear-gradient(var(--color-1) calc(50 * var(--size)), transparent 0);
+    background-size:
+      calc(50 * var(--size)) calc(50 * var(--size)), calc(100 * var(--size)) calc(76 * var(--size)),
+      calc(50 * var(--size)) calc(50 * var(--size)), calc(120 * var(--size)) calc(40 * var(--size));
+    background-position:
+      0 calc(30 * var(--size)), calc(37 * var(--size)) 0,
+      calc(122 * var(--size)) calc(30 * var(--size)), calc(25 * var(--size)) calc(40 * var(--size));
+    background-repeat: no-repeat; position: relative; box-sizing: border-box;
+}
+.loader::before {
+    content: ''; left: calc(60 * var(--size)); bottom: calc(18 * var(--size)); position: absolute; width: calc(36 * var(--size)); height: calc(36 * var(--size)); border-radius: 50%; background-color: var(--color-2);
+    background-image:
+      radial-gradient(circle calc(8 * var(--size)) at calc(18 * var(--size)) calc(18 * var(--size)), var(--color-1) 100%, transparent 0),
+      radial-gradient(circle calc(4 * var(--size)) at calc(18 * var(--size)) 0, var(--color-1) 100%, transparent 0),
+      radial-gradient(circle calc(4 * var(--size)) at 0 calc(18 * var(--size)), var(--color-1) 100%, transparent 0),
+      radial-gradient(circle calc(4 * var(--size)) at calc(36 * var(--size)) calc(18 * var(--size)), var(--color-1) 100%, transparent 0),
+      radial-gradient(circle calc(4 * var(--size)) at calc(18 * var(--size)) calc(36 * var(--size)), var(--color-1) 100%, transparent 0),
+      radial-gradient(circle calc(4 * var(--size)) at calc(30 * var(--size)) calc(5 * var(--size)), var(--color-1) 100%, transparent 0),
+      radial-gradient(circle calc(4 * var(--size)) at calc(30 * var(--size)) calc(5 * var(--size)), var(--color-1) 100%, transparent 0),
+      radial-gradient(circle calc(4 * var(--size)) at calc(30 * var(--size)) calc(30 * var(--size)), var(--color-1) 100%, transparent 0),
+      radial-gradient(circle calc(4 * var(--size)) at calc(5 * var(--size)) calc(30 * var(--size)), var(--color-1) 100%, transparent 0),
+      radial-gradient(circle calc(4 * var(--size)) at calc(5 * var(--size)) calc(5 * var(--size)), var(--color-1) 100%, transparent 0);
+    background-repeat: no-repeat; box-sizing: border-box; animation: rotationBack 3s linear infinite;
+}
+.loader::after {
+    content: ''; left: calc(94 * var(--size)); bottom: calc(15 * var(--size)); position: absolute; width: calc(24 * var(--size)); height: calc(24 * var(--size)); border-radius: 50%; background-color: var(--color-2);
+    background-image:
+      radial-gradient(circle calc(5 * var(--size)) at calc(12 * var(--size)) calc(12 * var(--size)), var(--color-1) 100%, transparent 0),
+      radial-gradient(circle calc(2.5 * var(--size)) at calc(12 * var(--size)) 0, var(--color-1) 100%, transparent 0),
+      radial-gradient(circle calc(2.5 * var(--size)) at 0 calc(12 * var(--size)), var(--color-1) 100%, transparent 0),
+      radial-gradient(circle calc(2.5 * var(--size)) at calc(24 * var(--size)) calc(12 * var(--size)), var(--color-1) 100%, transparent 0),
+      radial-gradient(circle calc(2.5 * var(--size)) at calc(12 * var(--size)) calc(24 * var(--size)), var(--color-1) 100%, transparent 0),
+      radial-gradient(circle calc(2.5 * var(--size)) at calc(20 * var(--size)) calc(3 * var(--size)), var(--color-1) 100%, transparent 0),
+      radial-gradient(circle calc(2.5 * var(--size)) at calc(20 * var(--size)) calc(3 * var(--size)), var(--color-1) 100%, transparent 0),
+      radial-gradient(circle calc(2.5 * var(--size)) at calc(20 * var(--size)) calc(20 * var(--size)), var(--color-1) 100%, transparent 0),
+      radial-gradient(circle calc(2.5 * var(--size)) at calc(3 * var(--size)) calc(20 * var(--size)), var(--color-1) 100%, transparent 0),
+      radial-gradient(circle calc(2.5 * var(--size)) at calc(3 * var(--size)) calc(3 * var(--size)), var(--color-1) 100%, transparent 0);
+    background-repeat: no-repeat; box-sizing: border-box; animation: rotationBack 4s linear infinite reverse;
+}
+@keyframes rotationBack { 0% { transform: rotate(0deg); } 100% { transform: rotate(-360deg); } }
+
+/* Mobile Logic overrides */
+@media (max-width: 768px) {
+    body[data-sidebar="active"] #main-view-container { 
+        left: 0; 
+        transform: scale(0.95) translateY(-5vh);
+    }
+    body[data-sidebar="active"] .screen-edge-tab { 
+        transform: translateX(-50%) translateY(150%); 
+    }
+    body[data-sidebar="active"] #platform-menu { 
+        transform: translateX(0); /* <--- Fixed: Was trying to slide on the Y axis previously */
+    }
+}

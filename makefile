@@ -27,18 +27,18 @@ sha:
 
 projectID="df-frontend"
 region="africa-south1"
-serviceAccount="maoni-app@df-frontend.iam.gserviceaccount.com"
-tag="${region}-docker.pkg.dev/${projectID}/maoni/maoni:${sha}"
+serviceAccount="ujuzi-601@df-frontend.iam.gserviceaccount.com"
+tag="${region}-docker.pkg.dev/${projectID}/ujuzi_reloaded/ujuzi_reloaded:${sha}"
 
 # https://cloud.google.com/artifact-registry/docs/docker/store-docker-container-images
 build-container:
 	@templ generate
 	@tailwindcss -c ./tailwind.config.js -i ./in.css -o ./app/assets/styles/main.css --minify
-	@env GOOS=linux GOARCH=amd64 go build -o ./bin/linux_amd64/maoni ./app
+	@env GOOS=linux GOARCH=amd64 go build -o ./bin/linux_amd64/ujuzi_reloaded ./app
 	@docker build -t ${tag} .
 
 # If the push fails with the error below, then you must re-auth your gcloud CLI
-# denied: Permission "artifactregistry.repositories.uploadArtifacts" denied on resource "projects/unifi-data-lake/locations/africa-south1/repositories/maoni" (or it may not exist)
+# denied: Permission "artifactregistry.repositories.uploadArtifacts" denied on resource "projects/unifi-data-lake/locations/africa-south1/repositories/ujuzi" (or it may not exist)
 # - gcloud auth login
 # - gcloud config set project unifi-data-lake
 push:
@@ -50,7 +50,7 @@ auth:
 
 # https://cloud.google.com/sdk/gcloud/reference/run/deploy#--set-env-vars
 revise:
-	@gcloud run deploy maoni \
+	@gcloud run deploy ujuzi_reloaded \
 		--image ${tag} \
 		--service-account ${serviceAccount}\
 		--region=${region} \
@@ -65,4 +65,4 @@ deploy:
 # https://cloud.google.com/docs/authentication/use-service-account-impersonation
 # https://cloud.google.com/docs/authentication/use-service-account-impersonation#adc
 creds:
-	@gcloud auth application-default login --impersonate-service-account maoni-app@df-frontend.iam.gserviceaccount.com
+	@gcloud auth application-default login --impersonate-service-account ujuzi-601@df-frontend.iam.gserviceaccount.com

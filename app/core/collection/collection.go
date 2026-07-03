@@ -1,8 +1,0 @@
-package collection
-
-const Sessions = "sessions"
-const Users = "users"
-const Surveys = "surveys"
-const SpecialSurveyAssignments = "special_survey_assignments"
-const Categories = "categories"
-const SurveyProgress = "survey_progress"

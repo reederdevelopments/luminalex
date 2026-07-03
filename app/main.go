@@ -6,21 +6,16 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"maoni/app/core/auth"
-	"maoni/app/core/bq"
-	"maoni/app/core/email"
-	"maoni/app/core/events"
-	"maoni/app/core/fire"
-	"maoni/app/core/mid"
-	"maoni/app/core/web"
-	"maoni/app/core/webx"
-	"maoni/app/modules/admin"
-	"maoni/app/modules/base"
 	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
-	"time"
+	"ujuzi_reloaded/app/backend/auth"
+	"ujuzi_reloaded/app/backend/fire"
+	"ujuzi_reloaded/app/backend/mid"
+	"ujuzi_reloaded/app/backend/web"
+	"ujuzi_reloaded/app/backend/webx"
+	base "ujuzi_reloaded/app/frontend/screens"
 
 	"github.com/ardanlabs/conf/v3"
 	"github.com/gorilla/sessions"
@@ -34,7 +29,7 @@ import (
 var assets embed.FS
 
 func main() {
-	l := log.New(os.Stdout, "MAONI : ", log.LstdFlags|log.Lmicroseconds|log.Lshortfile)
+	l := log.New(os.Stdout, "UJUZI_RELOADED : ", log.LstdFlags|log.Lmicroseconds|log.Lshortfile)
 	if err := run(l); err != nil {
 		fmt.Printf("ERROR: %s\n", err)
 		os.Exit(1)
@@ -52,12 +47,8 @@ func run(l *log.Logger) error {
 		Host            string `conf:",noumask"`
 		SessionSecret   string `conf:",mask"`
 		FsDbID          string `conf:"default:(default)"`
-		BqDatasetID     string `conf:"default:MAONI"`
-		DataBotEmail    string `conf:",noumask"`
-		DataBotPassword string `conf:",mask"`
 	}{}
 
-	// Initial parse to capture command-line flags like --dev
 	help, err := conf.Parse("", &cfg)
 	if err != nil {
 		if errors.Is(err, conf.ErrHelpWanted) {
@@ -69,7 +60,6 @@ func run(l *log.Logger) error {
 
 	confStr, _ := conf.String(&cfg)
 
-	// If in dev mode, load env.dev.yaml and re-parse config
 	if cfg.Dev {
 		f, err := os.Open("env.dev.yaml")
 		if err != nil {
@@ -86,7 +76,6 @@ func run(l *log.Logger) error {
 			os.Setenv(k, v)
 		}
 
-		// Re-parse to load values from the environment variables set from the yaml file.
 		if _, err = conf.Parse("", &cfg); err != nil {
 			return fmt.Errorf("parsing config after loading env.dev.yaml: %w", err)
 		}
@@ -98,84 +87,18 @@ func run(l *log.Logger) error {
 
 	l.Println("Config:\n", confStr)
 
-	// Manually check for required fields after all parsing attempts.
-	if cfg.GoogleKey == "" {
-		return errors.New("required field GoogleKey is missing value")
-	}
-	if cfg.GoogleSecret == "" {
-		return errors.New("required field GoogleSecret is missing value")
-	}
-	if cfg.GoogleProjectID == "" {
-		return errors.New("required field GoogleProjectID is missing value")
-	}
-	if cfg.Host == "" {
-		return errors.New("required field Host is missing value")
-	}
-	if cfg.SessionSecret == "" {
-		return errors.New("required field SessionSecret is missing value")
-	}
-	if cfg.DataBotEmail == "" {
-		return errors.New("required field DataBotEmail is missing value")
-	}
-	if cfg.DataBotPassword == "" {
-		return errors.New("required field DataBotPassword is missing value")
+	if cfg.GoogleKey == "" || cfg.GoogleSecret == "" || cfg.GoogleProjectID == "" || cfg.Host == "" || cfg.SessionSecret == "" {
+		return errors.New("missing required configuration fields")
 	}
 
-	// --- Services ---
-	eventBroker := events.NewBroker()
 	ctx := context.Background()
 
-	sender, err := email.NewGmailSender(l, cfg.DataBotEmail, cfg.DataBotPassword)
-	if err != nil {
-		return fmt.Errorf("failed to create gmail sender: %w", err)
-	}
-	emailSender := sender
-	l.Println("Using GmailSender for emails.")
-
+	// --- Services ---
 	fsDb, err := fire.Store(ctx, cfg.GoogleProjectID, cfg.FsDbID)
 	if err != nil {
 		return fmt.Errorf("failed to connect to firestore: %w", err)
 	}
 	defer fsDb.Close()
-
-	bqClient, err := bq.NewClient(ctx, cfg.GoogleProjectID)
-	if err != nil {
-		return fmt.Errorf("failed to create bigquery client: %w", err)
-	}
-	defer bqClient.Close()
-
-	if err := bq.EnsureSchema(ctx, bqClient, cfg.BqDatasetID); err != nil {
-		return fmt.Errorf("failed to ensure bigquery schema: %w", err)
-	}
-	surveyStore := bq.NewSurveyStore(bqClient, fsDb, cfg.BqDatasetID, eventBroker)
-
-	// --- Background Jobs ---
-	stopJobs := make(chan struct{})
-	go func() {
-		ticker := time.NewTicker(1 * time.Minute)
-		defer ticker.Stop()
-
-		// Run once on startup to catch up.
-		startupCtx, cancelStartup := context.WithTimeout(context.Background(), 30*time.Second)
-		if err := surveyStore.CheckAndManageSurveyStatus(startupCtx); err != nil {
-			l.Printf("ERROR: initial run of CheckAndManageSurveyStatus failed: %v", err)
-		}
-		cancelStartup()
-
-		for {
-			select {
-			case <-ticker.C:
-				jobCtx, cancelJob := context.WithTimeout(context.Background(), 30*time.Second)
-				if err := surveyStore.CheckAndManageSurveyStatus(jobCtx); err != nil {
-					l.Printf("ERROR: background job CheckAndManageSurveyStatus failed: %v", err)
-				}
-				cancelJob()
-			case <-stopJobs:
-				l.Println("Stopping survey status checker job.")
-				return
-			}
-		}
-	}()
 
 	// --- Authentication ---
 	authService := auth.NewService(cfg.SessionSecret)
@@ -190,9 +113,8 @@ func run(l *log.Logger) error {
 		),
 	)
 
-	// Goth needs a session store; this one is temporary for the auth dance.
 	cookieStore := sessions.NewCookieStore([]byte(cfg.SessionSecret))
-	cookieStore.Options.MaxAge = int(auth.SessionDuration.Seconds()) // Use the project's session duration
+	cookieStore.Options.MaxAge = int(auth.SessionDuration.Seconds())
 	cookieStore.Options.Path = "/"
 	cookieStore.Options.HttpOnly = true
 	cookieStore.Options.Secure = !cfg.Dev
@@ -213,9 +135,8 @@ func run(l *log.Logger) error {
 		mid.TryGzip,
 	)
 
-	// Initialize modules/routes
-	base.InitModule(l, app, sessionStore, surveyStore, eventBroker)
-	admin.InitModule(l, app, sessionStore, surveyStore, emailSender)
+	// Initialize base module (Auth & Core routes)
+	base.InitModule(l, app, sessionStore)
 
 	// Start Server
 	host := fmt.Sprintf("0.0.0.0:%d", cfg.Port)
@@ -226,36 +147,11 @@ func run(l *log.Logger) error {
 
 	shutdown := make(chan os.Signal, 1)
 	serverErr := make(chan error, 1)
-
 	signal.Notify(shutdown, os.Interrupt, syscall.SIGTERM)
 
 	go func() {
 		l.Printf("Starting server on %s", cfg.Host)
 		serverErr <- server.ListenAndServe()
-	}()
-
-	go func() {
-		statusTicker := time.NewTicker(1 * time.Minute)
-		syncTicker := time.NewTicker(5 * time.Minute) // New hourly ticker
-
-		defer statusTicker.Stop()
-		defer syncTicker.Stop()
-
-		for {
-			select {
-			case <-statusTicker.C:
-				surveyStore.CheckAndManageSurveyStatus(ctx)
-			case <-syncTicker.C:
-				l.Println("Starting hourly Firestore-BQ sync...")
-				jobCtx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
-				if err := surveyStore.SyncSurveys(jobCtx); err != nil {
-					l.Printf("ERROR: Sync failed: %v", err)
-				}
-				cancel()
-			case <-stopJobs:
-				return
-			}
-		}
 	}()
 
 	select {
@@ -266,9 +162,6 @@ func run(l *log.Logger) error {
 	case sig := <-shutdown:
 		l.Printf("starting server shutdown: %s", sig)
 		defer l.Println("server shutdown complete")
-
-		// Signal background jobs to stop.
-		close(stopJobs)
 
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), web.DefaultShutdownTimeout)
 		defer cancel()

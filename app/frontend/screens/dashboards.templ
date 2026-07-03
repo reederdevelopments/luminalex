@@ -1,0 +1,192 @@
+package base
+
+import "ujuzi_reloaded/app/backend/auth"
+import "ujuzi_reloaded/app/backend/ui/layout"
+
+templ adminDashboardsPage(dashboards []auth.Dashboard) {
+	@layout.Html("Dashboard Management") {
+		<div class="h-screen w-full bg-gray-50 flex flex-col font-sans">
+			
+			<div class="w-full bg-white border-b border-gray-200 flex px-6 pt-4 gap-8">
+				<button id="tab-btn-dash-list" class="pb-3 text-sm font-bold tracking-widest uppercase border-b-2 border-hl text-hl transition-colors cursor-pointer" onclick="switchDashTab('list')">Dashboards</button>
+				<button id="tab-btn-dash-add" class="pb-3 text-sm font-bold tracking-widest uppercase border-b-2 border-transparent text-gray-400 hover:text-gray-600 transition-colors cursor-pointer" onclick="switchDashTab('add')">Add New</button>
+			</div>
+
+			<div id="tab-dash-list" class="flex-1 flex overflow-hidden" style="display: flex;">
+				<div class="w-1/2 border-r border-gray-200 bg-white flex flex-col">
+					<div class="p-4 border-b border-gray-100">
+						<input type="text" id="admin-dash-search" placeholder="Search dashboards..." class="w-full bg-gray-50 border border-gray-200 rounded-lg px-4 py-2 text-sm outline-none focus:border-hl focus:ring-2 focus:ring-hl/20 transition-all"/>
+					</div>
+					<div class="flex-1 overflow-y-auto" id="dash-list-container">
+						for _, d := range dashboards {
+							<div class="p-5 border-b border-gray-50 hover:bg-gray-50 cursor-pointer flex flex-col gap-1 transition-colors" 
+								hx-get={ "/admin/api/dashboard/" + d.ID } hx-target="#dash-details-panel">
+								<span class="font-black text-gray-800 text-sm tracking-wide uppercase">{ d.Name }</span>
+								<span class="text-xs text-gray-400 font-medium truncate">{ d.Description }</span>
+							</div>
+						}
+					</div>
+				</div>
+				<div class="w-1/2 bg-gray-50 p-8 overflow-y-auto" id="dash-details-panel">
+					<div class="text-gray-400 text-sm mt-10 text-center font-medium">Select a dashboard to view/edit</div>
+				</div>
+			</div>
+
+			<div id="tab-dash-add" class="flex-1 overflow-y-auto bg-gray-50 p-8" style="display: none;">
+				<div class="max-w-3xl bg-white border border-gray-200 rounded-xl p-8 shadow-sm mb-8 mx-auto">
+					<h2 class="text-xl font-black tracking-widest text-green-x-dark uppercase mb-6 border-b border-gray-100 pb-4">Create Dashboard</h2>
+					@dashForm(auth.Dashboard{})
+				</div>
+			</div>
+		</div>
+
+		<script>
+			window.switchDashTab = function(tab) {
+				localStorage.setItem('adminDashActiveTab', tab);
+				document.getElementById('tab-dash-list').style.display = tab === 'list' ? 'flex' : 'none';
+				document.getElementById('tab-dash-add').style.display = tab === 'add' ? 'block' : 'none';
+				
+				const btnList = document.getElementById('tab-btn-dash-list');
+				const btnAdd = document.getElementById('tab-btn-dash-add');
+				
+				if(tab === 'list') {
+					btnList.className = "pb-3 text-sm font-bold tracking-widest uppercase border-b-2 border-hl text-hl transition-colors cursor-pointer";
+					btnAdd.className = "pb-3 text-sm font-bold tracking-widest uppercase border-b-2 border-transparent text-gray-400 hover:text-gray-600 transition-colors cursor-pointer";
+				} else {
+					btnAdd.className = "pb-3 text-sm font-bold tracking-widest uppercase border-b-2 border-hl text-hl transition-colors cursor-pointer";
+					btnList.className = "pb-3 text-sm font-bold tracking-widest uppercase border-b-2 border-transparent text-gray-400 hover:text-gray-600 transition-colors cursor-pointer";
+				}
+			}
+
+			// Restore tab on load
+			document.addEventListener('DOMContentLoaded', () => {
+				const activeTab = localStorage.getItem('adminDashActiveTab') || 'list';
+				window.switchDashTab(activeTab);
+			});
+
+			document.getElementById('admin-dash-search').addEventListener('input', function(e) {
+				const query = e.target.value.toLowerCase();
+				const rows = document.getElementById('dash-list-container').children;
+				Array.from(rows).forEach(row => {
+					row.style.display = row.innerText.toLowerCase().includes(query) ? 'flex' : 'none';
+				});
+			});
+
+			// FIX: Uses the button's relative position to find its own specific container
+			window.addPageRow = function(btn) {
+				const container = btn.parentElement.nextElementSibling;
+				const row = document.createElement('div');
+				row.className = 'flex gap-4 items-end mb-3';
+				row.innerHTML = `
+					<div class="flex-1">
+						<input type="text" name="page_name" placeholder="Page Name" required class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:border-hl outline-none"/>
+					</div>
+					<div class="flex-1">
+						<input type="text" name="page_code" placeholder="Page Code" required class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:border-hl outline-none"/>
+					</div>
+					<button type="button" onclick="this.parentElement.remove()" class="bg-red-50 text-red-500 hover:bg-red-100 p-2.5 rounded-lg font-bold text-xs uppercase transition-colors">X</button>
+				`;
+				container.appendChild(row);
+			}
+		</script>
+	}
+}
+
+templ dashDetailsPanel(d auth.Dashboard) {
+	<div class="bg-white border border-gray-200 rounded-xl p-8 shadow-sm relative">
+		<button hx-delete={ "/admin/api/dashboard/" + d.ID } hx-confirm="Delete this dashboard?" class="absolute top-8 right-8 text-gray-400 hover:text-red-500 transition-colors">
+			<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" /></svg>
+		</button>
+		<h2 class="text-xl font-black tracking-widest text-green-x-dark uppercase mb-6 border-b border-gray-100 pb-4">Edit Dashboard</h2>
+		@dashForm(d)
+	</div>
+}
+
+templ dashForm(d auth.Dashboard) {
+	<form hx-post="/admin/api/dashboard" class="flex flex-col gap-8">
+		<input type="hidden" name="id" value={ d.ID }/>
+
+		<section>
+			<h3 class="text-xs font-bold tracking-widest text-gray-400 uppercase mb-4">Section One: Details</h3>
+			<div class="flex flex-col gap-4">
+				<div class="flex gap-4">
+					<div class="flex-1">
+						<label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">Name</label>
+						<input type="text" name="name" value={ d.Name } required class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:border-hl outline-none"/>
+					</div>
+					<div class="w-1/3">
+						<label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">Area</label>
+						<input type="text" name="area" value={ d.Area } required class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:border-hl outline-none"/>
+					</div>
+				</div>
+				<div>
+					<label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">Report URL</label>
+					<input type="text" name="reportUrl" value={ d.ReportURL } required class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:border-hl outline-none"/>
+				</div>
+				<div>
+					<label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">Description</label>
+					<textarea name="description" rows="2" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:border-hl outline-none resize-none">{ d.Description }</textarea>
+				</div>
+			</div>
+		</section>
+
+		<section>
+			<h3 class="text-xs font-bold tracking-widest text-gray-400 uppercase mb-4">Section Two: Parameters</h3>
+			<div class="grid grid-cols-2 md:grid-cols-4 gap-4 bg-gray-50 p-4 rounded-xl border border-gray-200">
+				<div>
+					<label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Country Code</label>
+					<input type="text" name="param_country_code" value={ d.Parameters.CountryCode } placeholder="Param ID" class="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-xs focus:border-hl outline-none"/>
+				</div>
+				<div>
+					<label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Branch</label>
+					<input type="text" name="param_branch" value={ d.Parameters.Branch } placeholder="Param ID" class="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-xs focus:border-hl outline-none"/>
+				</div>
+				<div>
+					<label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Consultant</label>
+					<input type="text" name="param_consultant" value={ d.Parameters.Consultant } placeholder="Param ID" class="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-xs focus:border-hl outline-none"/>
+				</div>
+				<div>
+					<label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Cycle</label>
+					<input type="text" name="param_cycle" value={ d.Parameters.Cycle } placeholder="Param ID" class="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-xs focus:border-hl outline-none"/>
+				</div>
+				<div>
+					<label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Prev Cycle</label>
+					<input type="text" name="param_prev_cycle" value={ d.Parameters.PrevCycle } placeholder="Param ID" class="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-xs focus:border-hl outline-none"/>
+				</div>
+				<div>
+					<label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Date</label>
+					<input type="text" name="param_date" value={ d.Parameters.Date } placeholder="Param ID" class="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-xs focus:border-hl outline-none"/>
+				</div>
+				<div>
+					<label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Period</label>
+					<input type="text" name="param_period" value={ d.Parameters.Period } placeholder="Param ID" class="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-xs focus:border-hl outline-none"/>
+				</div>
+			</div>
+		</section>
+
+		<section>
+			<div class="flex justify-between items-end mb-4">
+				<h3 class="text-xs font-bold tracking-widest text-gray-400 uppercase">Section Three: Pages</h3>
+				<button type="button" onclick="window.addPageRow(this)" class="text-xs font-bold text-hl uppercase tracking-widest hover:text-green-x-dark">+ Add Page</button>
+			</div>
+			
+			<div class="pages-container flex flex-col">
+				for _, p := range d.Pages {
+					<div class="flex gap-4 items-end mb-3">
+						<div class="flex-1">
+							<input type="text" name="page_name" value={ p.Name } required class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:border-hl outline-none"/>
+						</div>
+						<div class="flex-1">
+							<input type="text" name="page_code" value={ p.Code } required class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:border-hl outline-none"/>
+						</div>
+						<button type="button" onclick="this.parentElement.remove()" class="bg-red-50 text-red-500 hover:bg-red-100 p-2.5 rounded-lg font-bold text-xs uppercase transition-colors">X</button>
+					</div>
+				}
+			</div>
+		</section>
+
+		<div class="border-t border-gray-100 pt-6 flex justify-end">
+			<button type="submit" class="bg-hl hover:bg-green-x-dark text-white font-bold text-xs uppercase tracking-widest px-8 py-3 rounded-lg transition-colors">Save Dashboard</button>
+		</div>
+	</form>
+}
