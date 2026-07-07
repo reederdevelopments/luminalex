@@ -17,14 +17,17 @@ type User struct {
 	Countries       []string       `firestore:"Countries"`
 	Groups          []string       `firestore:"Groups"`
 	Tools           []string       `firestore:"Tools"`
+	Favorites       []string       `firestore:"Favorites,omitempty"`
 	DashboardClicks map[string]int `firestore:"dashboardClicks,omitempty"`
 }
 
 type Group struct {
-	ID         string   `firestore:"-"`
-	Name       string   `firestore:"name"`
-	Level      string   `firestore:"level"`
-	Dashboards []string `firestore:"dashboards"`
+	ID           string   `firestore:"-"`
+	Name         string   `firestore:"name"`
+	Level        string   `firestore:"level"`
+	Dashboards   []string `firestore:"dashboards"`
+	Tools        []string `firestore:"tools"`
+	UnibosGroups []string `firestore:"unibosGroups"` // Added for core group mappings
 }
 
 type DashParams struct {

@@ -1,9 +1,44 @@
 // --- GLOBAL UI STATE ---
-let loaderTimer;
-const loaderOverlay = document.getElementById('loader-overlay');
+const loaderOverlay = document.getElementById('iframe-loading');
 const mainIframe = document.getElementById('main-view');
 const nativeToolView = document.getElementById('native-tool-view');
 const toolTitle = document.getElementById('tool-title');
+
+const POST_LOAD_BUFFER_MS = 2500;
+const MAX_WAIT_MS = 15000;
+
+let hideTimer = null;
+let maxTimer = null;
+
+function showLoader(url) {
+    if (!loaderOverlay) return;
+    
+    // Only show the loading animation for Looker/DataStudio dashboards
+    if (url && !(url.includes('lookerstudio.google.com') || url.includes('datastudio.google.com'))) {
+        return;
+    }
+    
+    loaderOverlay.classList.remove('hidden');
+    // Request animation frame ensures display block triggers before fading in
+    requestAnimationFrame(() => {
+        loaderOverlay.style.opacity = '1';
+    });
+    
+    clearTimeout(hideTimer);
+    clearTimeout(maxTimer);
+    maxTimer = setTimeout(hideLoader, MAX_WAIT_MS);
+}
+
+function hideLoader() {
+    if (!loaderOverlay) return;
+    clearTimeout(hideTimer);
+    clearTimeout(maxTimer);
+    
+    loaderOverlay.style.opacity = '0';
+    hideTimer = setTimeout(() => { 
+        loaderOverlay.classList.add('hidden'); 
+    }, 300); // Wait for the transition to finish
+}
 
 // --- USER ENVIRONMENT INITIALIZATION ---
 document.addEventListener('DOMContentLoaded', () => {
@@ -20,17 +55,46 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 3. Initialize Search
     initSearch();
+
+    // 4. Initialize Favorites
+    initFavorites();
+
+    // 5. Initialize Iframe Loader Logic
+    if (mainIframe && loaderOverlay) {
+        if (mainIframe.getAttribute('src')) {
+            showLoader(mainIframe.getAttribute('src'));
+        } else {
+            hideLoader();
+        }
+
+        mainIframe.addEventListener('load', () => {
+            if (!mainIframe.getAttribute('src')) {
+                hideLoader();
+                return;
+            }
+            clearTimeout(hideTimer);
+            hideTimer = setTimeout(hideLoader, POST_LOAD_BUFFER_MS);
+        });
+
+        // Watch for source swaps via JS
+        const obs = new MutationObserver((mutations) => {
+            for (const m of mutations) {
+                if (m.attributeName !== 'src') continue;
+                const src = mainIframe.getAttribute('src');
+                if (src) {
+                    showLoader(src);
+                } else {
+                    hideLoader();
+                }
+            }
+        });
+        obs.observe(mainIframe, { attributes: true, attributeFilter: ['src'] });
+    }
 });
 
 // --- CORE UI FUNCTIONS ---
 function setSidebarState(state) {
     document.body.setAttribute('data-sidebar', state);
-}
-
-function triggerLoader() {
-    if (loaderOverlay) loaderOverlay.style.display = 'flex'; 
-    clearTimeout(loaderTimer); 
-    loaderTimer = setTimeout(() => { if (loaderOverlay) loaderOverlay.style.display = 'none'; }, 5000);
 }
 
 function changeIframeUrl(url) {
@@ -39,7 +103,7 @@ function changeIframeUrl(url) {
         mainIframe.style.display = 'block';    
         mainIframe.src = url;
     }
-    triggerLoader();
+    showLoader(url);
     if (window.innerWidth <= 768) { setSidebarState('closed'); }
 }
 
@@ -55,17 +119,27 @@ function loadNativeTool(title) {
 // --- APP & MENU INTERACTIONS ---
 window.logClick = function(name, url) {
     if(!name || !url) return;
-    const formData = new FormData();
-    formData.append("name", name);
-    formData.append("url", url);
-    fetch('/api/track-click', { method: 'POST', body: formData })
-        .catch(e => console.error("Logging failed", e));
+    
+    // Switch to JSON to guarantee backend parsing
+    fetch('/api/track-click', { 
+        method: 'POST', 
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: name, url: url })
+    }).catch(e => console.error("Logging failed", e));
 };
 
 window.handleAppBtnClick = function(e, el) {
     if(e) e.stopPropagation();
     const name = el.getAttribute('data-name');
-    const url = el.getAttribute('data-url');
+    let url = el.getAttribute('data-url');
+    
+    if (window.searchDatabase) {
+        const match = window.searchDatabase.find(item => item.name === name);
+        if (match && !match.isTool) {
+            url = window.buildLookerUrl(match.url, match.params, match.code);
+        }
+    }
+    
     window.logClick(name, url);
     changeIframeUrl(url);
 };
@@ -73,8 +147,9 @@ window.handleAppBtnClick = function(e, el) {
 window.handleToolClick = function(e, el) {
     if(e) e.stopPropagation();
     const toolName = el.getAttribute('data-tool');
-    window.logClick(toolName, toolName);
-    loadNativeTool(toolName);
+    const toolUrl = el.getAttribute('data-url');
+    window.logClick(toolName, toolUrl);
+    changeIframeUrl(toolUrl);
 };
 
 // Enforcing inline styles alongside Tailwind classes for bulletproof dropdowns
@@ -211,7 +286,10 @@ function initSearch() {
     
     let searchDatabase = [];
     if (searchDbEl) {
-        try { searchDatabase = JSON.parse(searchDbEl.textContent); } 
+        try { 
+            searchDatabase = JSON.parse(searchDbEl.textContent); 
+            window.searchDatabase = searchDatabase; 
+        } 
         catch(e) { console.error("Failed to load search data:", e); }
     }
 
@@ -264,6 +342,163 @@ function initSearch() {
             }
         });
     }
+}
+
+// --- FAVORITES & SORTING ---
+function initFavorites() {
+    window.userFavorites = [];
+    const favDbEl = document.getElementById('user-favorites-data');
+    if (favDbEl) {
+        try { 
+            const parsed = JSON.parse(favDbEl.textContent); 
+            if (Array.isArray(parsed)) {
+                window.userFavorites = parsed;
+            }
+        } 
+        catch(e) { console.error("Failed to load favorites data:", e); }
+    }
+
+    const favList = document.getElementById('my-favorites-list');
+    if (favList && typeof Sortable !== 'undefined') {
+        Sortable.create(favList, {
+            animation: 150,
+            draggable: '.fav-item',
+            onEnd: function() {
+                const newOrder = [];
+                favList.querySelectorAll('.fav-item').forEach(el => {
+                    newOrder.push(el.getAttribute('data-id'));
+                });
+                window.userFavorites = newOrder;
+                saveFavorites();
+            }
+        });
+    }
+}
+
+window.toggleFavorite = function(e, btn) {
+    if(e) e.stopPropagation();
+    const id = btn.getAttribute('data-id');
+    const idx = window.userFavorites.indexOf(id);
+    const favList = document.getElementById('my-favorites-list');
+    const emptyMsg = document.getElementById('my-favorites-empty');
+
+    if (idx === -1) {
+        // ADD FAVORITE
+        window.userFavorites.push(id);
+        btn.innerHTML = `<svg class="w-3 h-3 text-yellow-400" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>`;
+        
+        // Build list item to inject
+        if (favList) {
+            const name = btn.getAttribute('data-name');
+            const url = btn.getAttribute('data-url') || btn.getAttribute('data-tool');
+            const type = url ? (url.includes('/tools/') ? 'Tool' : (id.startsWith('Page:') ? 'Page' : 'Dashboard')) : 'Dashboard';
+            const code = btn.getAttribute('data-code') || '';
+            
+            const pCountry = btn.getAttribute('data-p-country') || '';
+            const pBranch = btn.getAttribute('data-p-branch') || '';
+            const pConsultant = btn.getAttribute('data-p-consultant') || '';
+            const pCycle = btn.getAttribute('data-p-cycle') || '';
+            const pPrev = btn.getAttribute('data-p-prev') || '';
+            const pDate = btn.getAttribute('data-p-date') || '';
+            const pPeriod = btn.getAttribute('data-p-period') || '';
+            
+            const itemHtml = `
+                <div class="fav-item flex items-center justify-between px-4 py-3 border-b border-gray-100 hover:bg-gray-50 cursor-grab group/favitem transition-colors bg-white" data-id="${id}">
+                    <div class="flex items-center gap-3 overflow-hidden flex-1 cursor-pointer"
+                        data-name="${name}" data-url="${url}" data-type="${type}" data-code="${code}"
+                        data-p-country="${pCountry}" data-p-branch="${pBranch}" data-p-consultant="${pConsultant}"
+                        data-p-cycle="${pCycle}" data-p-prev="${pPrev}" data-p-date="${pDate}" data-p-period="${pPeriod}"
+                        onclick="window.handleFavBtnClick(event, this)">
+                        <span class="text-xs font-bold text-gray-700 truncate">${name}</span>
+                    </div>
+                    <button class="text-gray-300 hover:text-red-500 transition-colors w-5 h-5 flex items-center justify-center shrink-0"
+                        onclick="window.removeFavorite(event, this, '${id}')">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                    </button>
+                </div>
+            `;
+            favList.insertAdjacentHTML('beforeend', itemHtml);
+            if (emptyMsg) emptyMsg.style.display = 'none';
+        }
+    } else {
+        // REMOVE FAVORITE
+        window.userFavorites.splice(idx, 1);
+        btn.innerHTML = `<svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>`;
+        
+        // Remove from list if present
+        if (favList) {
+            const item = favList.querySelector(`[data-id="${id}"]`);
+            if (item) item.remove();
+            if (window.userFavorites.length === 0 && emptyMsg) emptyMsg.style.display = 'block';
+        }
+    }
+    
+    saveFavorites();
+};
+
+window.removeFavorite = function(e, btn, id) {
+    if (e) e.stopPropagation();
+    const idx = window.userFavorites.indexOf(id);
+    const emptyMsg = document.getElementById('my-favorites-empty');
+
+    if (idx !== -1) {
+        window.userFavorites.splice(idx, 1);
+        saveFavorites();
+        
+        // Remove from list
+        const item = btn.closest('.fav-item');
+        if (item) item.remove();
+        
+        if (window.userFavorites.length === 0 && emptyMsg) emptyMsg.style.display = 'block';
+
+        // Reset star in sidebar
+        const sidebarStar = document.querySelector(`button[data-id="${id}"]`);
+        if (sidebarStar) {
+            sidebarStar.innerHTML = `<svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>`;
+        }
+    }
+};
+
+window.handleFavBtnClick = function(e, btn) {
+    if(e) e.stopPropagation();
+    const type = btn.getAttribute('data-type');
+    let url = btn.getAttribute('data-url');
+    const name = btn.getAttribute('data-name');
+    
+    if (window.searchDatabase && type !== 'Tool') {
+        const match = window.searchDatabase.find(item => item.name === name);
+        if (match) {
+            url = window.buildLookerUrl(match.url, match.params, match.code);
+        } else {
+             const p = {
+                CountryCode: btn.getAttribute('data-p-country'),
+                Branch: btn.getAttribute('data-p-branch'),
+                Consultant: btn.getAttribute('data-p-consultant'),
+                Cycle: btn.getAttribute('data-p-cycle'),
+                PrevCycle: btn.getAttribute('data-p-prev'),
+                Date: btn.getAttribute('data-p-date'),
+                Period: btn.getAttribute('data-p-period')
+            };
+            const code = btn.getAttribute('data-code');
+            url = window.buildLookerUrl(url, p, code);
+        }
+    }
+    
+    window.logClick(name, url);
+
+    if (type === 'Tool') {
+        changeIframeUrl(url); 
+    } else {
+        changeIframeUrl(url);
+    }
+}
+
+function saveFavorites() {
+    return fetch('/api/favorites', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ favorites: window.userFavorites })
+    }).catch(e => console.error("Saving favorites failed:", e));
 }
 
 // --- FLAG DROPDOWN LOGIC ---

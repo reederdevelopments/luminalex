@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -93,6 +94,33 @@ func (f *FireStore) Get(ctx context.Context, now time.Time, authToken string) (U
 
 		// Manually map ID due to firestore:"-" struct tag
 		user.ID = doc.Ref.ID
+
+		// Augment user tools with tools from their groups
+		if len(user.Groups) > 0 {
+			toolSet := make(map[string]struct{})
+			for _, tool := range user.Tools {
+				toolSet[tool] = struct{}{}
+			}
+
+			for _, groupID := range user.Groups {
+				groupDoc, err := f.db.Collection("groups").Doc(groupID).Get(ctx)
+				if err == nil {
+					var group Group
+					if err := groupDoc.DataTo(&group); err == nil {
+						for _, tool := range group.Tools {
+							toolSet[tool] = struct{}{}
+						}
+					}
+				}
+			}
+
+			var tools []string
+			for tool := range toolSet {
+				tools = append(tools, tool)
+			}
+			sort.Strings(tools)
+			user.Tools = tools
+		}
 
 		// Store in cache
 		f.userCache.Store(user.ID, user)

@@ -1,0 +1,77 @@
+package engineering
+
+import (
+	"ujuzi_reloaded/app/backend/ui/layout"
+)
+
+templ engineeringPage() {
+	@layout.Html("Engineering Management") {
+		<script src="https://unpkg.com/cronstrue@latest/dist/cronstrue.min.js"></script>
+
+		<div class="h-screen w-full bg-gray-50 flex flex-col font-sans">
+			
+			<div class="w-full bg-white border-b border-gray-200 flex px-6 pt-4 gap-8">
+				<button id="tab-btn-reload" class="pb-3 text-sm font-bold tracking-widest uppercase border-b-2 border-hl text-hl transition-colors cursor-pointer" onclick="switchEngTab('reload')">Data Factory Reload</button>
+				<button id="tab-btn-dataform" class="pb-3 text-sm font-bold tracking-widest uppercase border-b-2 border-transparent text-gray-400 hover:text-gray-600 transition-colors cursor-pointer" onclick="switchEngTab('dataform')">Job Configs</button>
+			</div>
+
+			<div id="tab-reload" class="flex-1 flex overflow-hidden" style="display: flex;">
+				<div class="w-1/2 border-r border-gray-200 bg-white flex flex-col">
+					<form id="reload-filter-form" hx-get="/admin/api/engineering/reload/list" hx-target="#reload-tables-container" hx-trigger="change, input delay:300ms from:#reload-search" class="p-4 border-b border-gray-100 flex flex-col gap-4 bg-gray-50/50">
+						<div class="flex gap-2">
+							<input type="text" id="reload-search" name="search" placeholder="Search tables..." class="flex-1 bg-white border border-gray-200 rounded-lg px-4 py-2 text-sm outline-none focus:border-hl focus:ring-2 focus:ring-hl/20 transition-all"/>
+							
+							<select name="collection" id="reload-collection-dropdown" class="w-1/3 bg-white border border-gray-200 rounded-lg px-4 py-2 text-sm outline-none focus:border-hl focus:ring-2 focus:ring-hl/20">
+								</select>
+						</div>
+						
+						<div class="flex gap-4 items-center">
+							<label class="flex items-center gap-2 cursor-pointer">
+								<input type="checkbox" name="can_refresh" value="true" class="rounded border-gray-300 text-hl focus:ring-hl/20" />
+								<span class="text-xs font-bold text-gray-700 uppercase tracking-wider">Can Refresh</span>
+							</label>
+							<label class="flex items-center gap-2 cursor-pointer">
+								<input type="checkbox" name="is_refreshing" value="true" class="rounded border-gray-300 text-hl focus:ring-hl/20" />
+								<span class="text-xs font-bold text-gray-700 uppercase tracking-wider">Is Refreshing</span>
+							</label>
+						</div>
+
+						<div class="flex gap-2">
+							for _, cc := range []string{"za", "ke", "ug", "tz", "zm"} {
+								<label class="cursor-pointer">
+									<input type="radio" name="cc" value={ cc } class="peer hidden" checked?={ cc == "za" } />
+									<div class="px-4 py-1.5 rounded-full border border-gray-200 text-xs font-bold text-gray-500 uppercase tracking-widest peer-checked:bg-green-x-dark peer-checked:text-white transition-colors">
+										{ cc }
+									</div>
+								</label>
+							}
+						</div>
+					</form>
+					<div class="flex-1 overflow-y-auto" id="reload-tables-container" hx-get="/admin/api/engineering/reload/list?cc=za" hx-trigger="load">
+						</div>
+				</div>
+				<div class="w-1/2 bg-gray-50 p-8 overflow-y-auto relative" id="reload-action-panel">
+					<div class="text-gray-400 text-sm mt-10 text-center font-medium">Select a table to manage</div>
+				</div>
+			</div>
+
+			<div id="tab-dataform" class="flex-1 flex overflow-hidden" style="display: none;">
+				<div class="w-1/2 border-r border-gray-200 bg-white flex flex-col">
+					<div class="p-4 border-b border-gray-100 flex gap-4 bg-gray-50/50">
+						<input type="text" hx-get="/admin/api/engineering/jobconfig/list" hx-target="#job-list-container" hx-trigger="input delay:300ms" name="search" placeholder="Search jobs..." class="flex-1 bg-white border border-gray-200 rounded-lg px-4 py-2 text-sm outline-none focus:border-hl focus:ring-2 focus:ring-hl/20 transition-all"/>
+						<button hx-get="/admin/api/engineering/jobconfig/new" hx-target="#jobconfig-form-container" class="bg-hl text-white px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-widest hover:bg-green-x-dark whitespace-nowrap">Add New</button>
+					</div>
+					<div class="flex-1 overflow-y-auto" id="job-list-container" hx-get="/admin/api/engineering/jobconfig/list" hx-trigger="load, job-saved from:body">
+						</div>
+				</div>
+				<div class="w-1/2 bg-gray-50 p-8 overflow-y-auto" id="jobconfig-form-container">
+					<div class="text-gray-400 text-sm mt-10 text-center font-medium">Select a job or click "Add New"</div>
+				</div>
+			</div>
+
+		</div>
+
+		<script src="/assets/scripts/engineering_main.js?v=1.0.0"></script>
+		<script src="/assets/scripts/engineering_jobconfig.js?v=1.0.0"></script>
+	}
+}

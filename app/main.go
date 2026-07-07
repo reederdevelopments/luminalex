@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"database/sql" // <-- ADDED
 	"embed"
 	"errors"
 	"fmt"
@@ -15,9 +16,10 @@ import (
 	"ujuzi_reloaded/app/backend/mid"
 	"ujuzi_reloaded/app/backend/web"
 	"ujuzi_reloaded/app/backend/webx"
-	base "ujuzi_reloaded/app/frontend/screens"
+	base "ujuzi_reloaded/app/frontend/dashboards"
 
 	"github.com/ardanlabs/conf/v3"
+	_ "github.com/go-sql-driver/mysql" // <-- ADDED: MySQL Driver
 	"github.com/gorilla/sessions"
 	"github.com/markbates/goth"
 	"github.com/markbates/goth/gothic"
@@ -47,6 +49,15 @@ func run(l *log.Logger) error {
 		Host            string `conf:",noumask"`
 		SessionSecret   string `conf:",mask"`
 		FsDbID          string `conf:"default:(default)"`
+
+		// MySQL Configuration (Added back from old codebase)
+		UnifiDbUser     string `conf:"default:root"`
+		UnifiDbPassword string `conf:",mask"`
+		UnifiDbZaHost   string `conf:",noumask"`
+		UnifiDbKeHost   string `conf:",noumask"`
+		UnifiDbUgHost   string `conf:",noumask"`
+		UnifiDbTzHost   string `conf:",noumask"`
+		UnifiDbZmHost   string `conf:",noumask"`
 	}{}
 
 	help, err := conf.Parse("", &cfg)
@@ -100,6 +111,37 @@ func run(l *log.Logger) error {
 	}
 	defer fsDb.Close()
 
+	// --- MySQL Core Databases ---
+	coreDBs := make(map[string]*sql.DB)
+	dbHosts := map[string]string{
+		"za": cfg.UnifiDbZaHost,
+		"ke": cfg.UnifiDbKeHost,
+		"ug": cfg.UnifiDbUgHost,
+		"tz": cfg.UnifiDbTzHost,
+		"zm": cfg.UnifiDbZmHost,
+	}
+
+	for cc, host := range dbHosts {
+		if host != "" {
+			dsn := fmt.Sprintf("%s:%s@tcp(%s)/core_%s?parseTime=true", cfg.UnifiDbUser, cfg.UnifiDbPassword, host, cc)
+			db, err := sql.Open("mysql", dsn)
+			if err != nil {
+				l.Printf("Failed to open MySQL for %s: %v", cc, err)
+				continue
+			}
+
+			// Optional: Ping to verify connection immediately
+			if err := db.PingContext(ctx); err != nil {
+				l.Printf("Failed to ping MySQL for %s: %v", cc, err)
+				db.Close()
+				continue
+			}
+
+			coreDBs[cc] = db
+			defer db.Close() // Ensures all open connections close when the server shuts down
+		}
+	}
+
 	// --- Authentication ---
 	authService := auth.NewService(cfg.SessionSecret)
 	sessionStore := auth.NewFireStore(l, fsDb, authService, cfg.Dev)
@@ -136,7 +178,8 @@ func run(l *log.Logger) error {
 	)
 
 	// Initialize base module (Auth & Core routes)
-	base.InitModule(l, app, sessionStore)
+	// We now pass coreDBs down the chain.
+	base.InitModule(l, app, sessionStore, coreDBs)
 
 	// Start Server
 	host := fmt.Sprintf("0.0.0.0:%d", cfg.Port)

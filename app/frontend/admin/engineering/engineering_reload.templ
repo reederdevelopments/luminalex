@@ -1,0 +1,68 @@
+package engineering
+
+import "fmt"
+
+templ reloadLoadingPanel(cc string) {
+	<div class="px-4 text-center h-full flex flex-col items-center justify-center bg-white" 
+		hx-get={ "/admin/api/engineering/reload/list?cc=" + cc } 
+		hx-include="#reload-filter-form" 
+		hx-trigger="every 5s" 
+		hx-swap="outerHTML">
+		<div>
+			<h1 class="text-3xl font-bold mb-2">Data is being prepared...</h1>
+			<p class="text-sm font-bold text-gray-600 mt-4 max-w-sm mx-auto">The data for this page is being loaded in the background. This page will automatically refresh in a few seconds.</p>
+			<div class="mt-8 flex justify-center">
+				<span class="loader scale-75 origin-center"></span>
+			</div>
+		</div>
+	</div>
+}
+
+templ reloadTablesPanel(tables []CoreReload, collections []string, activeCollection string, errorMsg string) {
+	if len(collections) > 0 {
+		<select id="reload-collection-dropdown" hx-swap-oob="true" name="collection" class="w-1/3 bg-white border border-gray-200 rounded-lg px-4 py-2 text-sm outline-none focus:border-hl focus:ring-2 focus:ring-hl/20">
+			for _, c := range collections {
+				<option value={ c } selected?={ c == activeCollection }>{ c }</option>
+			}
+		</select>
+	}
+	
+	// Polling is configured here (every 10s)
+	<div hx-get="/admin/api/engineering/reload/list" hx-trigger="every 10s" hx-include="#reload-filter-form" hx-swap="outerHTML">
+		if errorMsg != "" {
+			<div class="p-8 text-center">
+				<div class="inline-block bg-red-50 border border-red-200 text-red-700 text-sm font-bold px-4 py-3 rounded-lg">{ errorMsg }</div>
+			</div>
+		} else if len(tables) == 0 {
+			<div class="p-8 text-center text-sm font-bold text-gray-400">No tables found for this filter.</div>
+		} else {
+			for _, t := range tables {
+				<div class="p-4 border-b border-gray-50 hover:bg-gray-50 cursor-pointer flex justify-between items-center transition-colors">
+					<div class="flex flex-col flex-1 pr-4" onclick={ templ.ComponentScript{Call: fmt.Sprintf("window.openReloadAction('%s', '%s', '%s', '%s')", t.Name, t.Database, t.CronSchedule, t.EncodedKey)} }>
+						<div class="flex items-center gap-3">
+							<span class="font-bold text-gray-800 text-sm">{ t.Name }</span>
+							// The Spinner updates dynamically based on RefreshInProgress
+							if t.RefreshInProgress {
+								<svg class="animate-spin h-5 w-5 text-hl" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+									<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+									<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+								</svg>
+							}
+						</div>
+						<span class="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-1">{ t.Database } | { t.CronSchedule }</span>
+					</div>
+					<div class="flex items-center gap-4">
+						// Fixed Toggle Enable HTMX Form
+						<form hx-post="/admin/api/engineering/reload/toggle-enable" hx-trigger="change" hx-include="[name='cc']:checked" hx-swap="none" class="m-0 p-0 flex items-center">
+							<input type="hidden" name="key" value={ t.EncodedKey } />
+							<label class="relative inline-flex items-center cursor-pointer" title="Has GCS Data (Enabled)">
+								<input type="checkbox" name="enabled" value="true" class="sr-only peer" checked?={ t.HasGcsData } />
+								<div class="w-7 h-4 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-hl"></div>
+							</label>
+						</form>
+					</div>
+				</div>
+			}
+		}
+	</div>
+}

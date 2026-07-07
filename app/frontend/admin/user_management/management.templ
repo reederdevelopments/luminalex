@@ -1,9 +1,9 @@
-package base
+package user_management
 
 import "ujuzi_reloaded/app/backend/auth"
 import "ujuzi_reloaded/app/backend/ui/layout"
 
-templ adminManagementPage(users []auth.User, groups []auth.Group, dashboards []auth.Dashboard) {
+templ adminManagementPage(users []auth.User, groups []auth.Group, dashboards []auth.Dashboard, unibosGroups []string) {
 	@layout.Html("User Management") {
 		<div class="h-screen w-full bg-gray-50 flex flex-col font-sans">
 			
@@ -14,9 +14,11 @@ templ adminManagementPage(users []auth.User, groups []auth.Group, dashboards []a
 
 			<div id="tab-users" class="flex-1 flex overflow-hidden" style="display: flex;">
 				<div class="w-1/2 border-r border-gray-200 bg-white flex flex-col">
-					<div class="p-4 border-b border-gray-100">
-						<input type="text" id="admin-user-search" placeholder="Search users by name or email..." class="w-full bg-gray-50 border border-gray-200 rounded-lg px-4 py-2 text-sm outline-none focus:border-hl focus:ring-2 focus:ring-hl/20 transition-all"/>
+					<div class="p-4 border-b border-gray-100 flex items-center gap-4">
+						<input type="text" id="admin-user-search" placeholder="Search users by name or email..." class="flex-1 bg-gray-50 border border-gray-200 rounded-lg px-4 py-2 text-sm outline-none focus:border-hl focus:ring-2 focus:ring-hl/20 transition-all"/>
+						<button hx-post="/admin/api/sync/users" hx-target="#user-sync-feedback" class="bg-green-x-dark hover:bg-hl text-white font-bold text-xs uppercase tracking-widest px-4 py-2 rounded-lg transition-colors whitespace-nowrap shadow-sm">Sync Users</button>
 					</div>
+					<div id="user-sync-feedback" class="px-4"></div>
 					<div class="flex-1 overflow-y-auto" id="user-list-container">
 						for _, u := range users {
 							<div class="p-4 border-b border-gray-50 hover:bg-gray-50 cursor-pointer flex items-center gap-4 transition-colors" 
@@ -41,9 +43,11 @@ templ adminManagementPage(users []auth.User, groups []auth.Group, dashboards []a
 
 			<div id="tab-groups" class="flex-1 flex overflow-hidden" style="display: none;">
 				<div class="w-1/2 border-r border-gray-200 bg-white flex flex-col">
-					<div class="p-4 border-b border-gray-100">
-						<input type="text" id="admin-group-search" placeholder="Search groups by name..." class="w-full bg-gray-50 border border-gray-200 rounded-lg px-4 py-2 text-sm outline-none focus:border-hl focus:ring-2 focus:ring-hl/20 transition-all"/>
+					<div class="p-4 border-b border-gray-100 flex items-center gap-4">
+						<input type="text" id="admin-group-search" placeholder="Search groups by name..." class="flex-1 bg-gray-50 border border-gray-200 rounded-lg px-4 py-2 text-sm outline-none focus:border-hl focus:ring-2 focus:ring-hl/20 transition-all"/>
+						<button hx-post="/admin/api/sync/usergroups" hx-target="#group-sync-feedback" class="bg-green-x-dark hover:bg-hl text-white font-bold text-xs uppercase tracking-widest px-4 py-2 rounded-lg transition-colors whitespace-nowrap shadow-sm">Sync Groups</button>
 					</div>
+					<div id="group-sync-feedback" class="px-4"></div>
 					<div class="p-4 border-b border-gray-100 flex gap-2 bg-gray-50/50">
 						<form hx-post="/admin/api/group" class="flex w-full gap-2 items-center">
 							<input type="text" name="name" placeholder="New Group Name" required class="flex-1 bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-hl"/>
@@ -102,19 +106,32 @@ templ adminManagementPage(users []auth.User, groups []auth.Group, dashboards []a
 				}
 			}
 
-			// Fix HTMX submission for the dashboards array
+			window.moveUnibosGroups = function(dir) {
+				const unassigned = document.getElementById('unassigned-unibos');
+				const assigned = document.getElementById('assigned-unibos');
+				
+				if (dir === 'right') {
+					Array.from(unassigned.selectedOptions).forEach(opt => assigned.appendChild(opt));
+				} else {
+					Array.from(assigned.selectedOptions).forEach(opt => unassigned.appendChild(opt));
+				}
+			}
+
 			document.body.addEventListener('htmx:configRequest', function(evt) {
 				if(evt.detail.path.includes('/admin/api/group/')) {
-					const assigned = document.getElementById('assigned-dashboards');
-					if(assigned) {
-						// Extract all options and append them directly to the request parameters
-						const vals = Array.from(assigned.options).map(opt => opt.value);
+					const assignedDashes = document.getElementById('assigned-dashboards');
+					if(assignedDashes) {
+						const vals = Array.from(assignedDashes.options).map(opt => opt.value);
 						evt.detail.parameters['dashboards'] = vals; 
+					}
+					const assignedUnibos = document.getElementById('assigned-unibos');
+					if(assignedUnibos) {
+						const vals = Array.from(assignedUnibos.options).map(opt => opt.value);
+						evt.detail.parameters['unibosGroups'] = vals; 
 					}
 				}
 			});
 
-			// User Search
 			document.getElementById('admin-user-search').addEventListener('input', function(e) {
 				const query = e.target.value.toLowerCase();
 				const rows = document.getElementById('user-list-container').children;
@@ -123,7 +140,6 @@ templ adminManagementPage(users []auth.User, groups []auth.Group, dashboards []a
 				});
 			});
 
-			// Group Search
 			document.getElementById('admin-group-search').addEventListener('input', function(e) {
 				const query = e.target.value.toLowerCase();
 				const rows = document.getElementById('group-list-container').children;
@@ -181,7 +197,7 @@ templ userDetailsPanel(u auth.User, allGroups []auth.Group) {
 	</div>
 }
 
-templ groupDetailsPanel(g auth.Group, allDashboards []auth.Dashboard) {
+templ groupDetailsPanel(g auth.Group, allDashboards []auth.Dashboard, unibosGroups []string) {
 	<div class="bg-white border border-gray-200 rounded-xl p-6 shadow-sm relative">
 		<button hx-delete={ "/admin/api/group/" + g.ID } hx-confirm="Are you sure you want to delete this group?" class="absolute top-6 right-6 text-gray-400 hover:text-red-500 transition-colors">
 			<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" /></svg>
@@ -234,6 +250,53 @@ templ groupDetailsPanel(g auth.Group, allDashboards []auth.Dashboard) {
 				</div>
 			</div>
 
+			<div>
+				<h3 class="text-xs font-bold tracking-widest text-gray-400 uppercase mb-3">Unibos Mapping</h3>
+				<div class="flex items-center gap-4">
+					<div class="flex-1 flex flex-col gap-1">
+						<label class="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Unassigned Unibos Groups</label>
+						<select id="unassigned-unibos" multiple class="w-full h-48 border border-gray-200 rounded-lg p-2 text-xs font-medium text-gray-700 bg-gray-50 focus:border-hl outline-none">
+							if len(unibosGroups) == 0 {
+								<option disabled class="text-gray-400 italic">No Groups Found...</option>
+							}
+							for _, groupName := range unibosGroups {
+								if !containsString(g.UnibosGroups, groupName) {
+									<option value={ groupName } class="p-1.5 hover:bg-green-x-light/10">{ groupName }</option>
+								}
+							}
+						</select>
+					</div>
+
+					<div class="flex flex-col gap-2 pt-5">
+						<button type="button" onclick="window.moveUnibosGroups('right')" class="p-2 rounded bg-gray-100 hover:bg-gray-200 text-gray-600 transition-colors">▶</button>
+						<button type="button" onclick="window.moveUnibosGroups('left')" class="p-2 rounded bg-gray-100 hover:bg-gray-200 text-gray-600 transition-colors">◀</button>
+					</div>
+
+					<div class="flex-1 flex flex-col gap-1">
+						<label class="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Mapped Unibos Groups</label>
+						<select id="assigned-unibos" name="unibosGroups" multiple class="w-full h-48 border border-gray-200 rounded-lg p-2 text-xs font-medium text-gray-700 bg-gray-50 focus:border-hl outline-none">
+							for _, groupName := range unibosGroups {
+								if containsString(g.UnibosGroups, groupName) {
+									<option value={ groupName } class="p-1.5 hover:bg-green-x-light/10">{ groupName }</option>
+								}
+							}
+						</select>
+					</div>
+				</div>
+			</div>
+
+			<div>
+				<h3 class="text-xs font-bold tracking-widest text-gray-400 uppercase mb-3">Tool Assignments</h3>
+				<div class="border border-gray-200 rounded-lg p-3 bg-gray-50 grid grid-cols-2 gap-2">
+					for _, tool := range []string{"Campaigns", "Unifi Words", "Credit Policy", "Targets", "Dataform"} {
+						<label class="flex items-center gap-2 p-2 hover:bg-gray-100 rounded cursor-pointer transition-colors">
+							<input type="checkbox" name="tools" value={ tool } class="rounded border-gray-300 text-hl focus:ring-hl/20" checked?={ containsString(g.Tools, tool) } />
+							<span class="text-xs font-bold text-gray-700">{ tool }</span>
+						</label>
+					}
+				</div>
+			</div>
+
 			<div class="mt-2 flex justify-end">
 				<button type="submit" class="bg-hl hover:bg-green-x-dark text-white font-bold text-xs uppercase tracking-widest px-6 py-2.5 rounded-lg transition-colors">Save Group</button>
 			</div>
@@ -242,8 +305,8 @@ templ groupDetailsPanel(g auth.Group, allDashboards []auth.Dashboard) {
 }
 
 func containsString(slice []string, val string) bool {
-    for _, item := range slice {
-        if item == val { return true }
-    }
-    return false
+	for _, item := range slice {
+		if item == val { return true }
+	}
+	return false
 }

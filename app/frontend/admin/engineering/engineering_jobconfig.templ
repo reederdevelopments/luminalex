@@ -1,0 +1,185 @@
+package engineering
+
+templ jobConfigListPanel(jobs []JobConfig) {
+	if len(jobs) == 0 {
+		<div class="p-8 text-center text-sm font-bold text-gray-400">No jobs found.</div>
+	}
+	for _, j := range jobs {
+		<div class="p-4 border-b border-gray-50 hover:bg-gray-50 cursor-pointer flex justify-between items-center transition-colors"
+			hx-get={ "/admin/api/engineering/jobconfig/" + j.EncodedKey } hx-target="#jobconfig-form-container">
+			<div class="flex flex-col">
+				<span class="font-bold text-gray-800 text-sm">{ j.Name }</span>
+				<span class="text-[10px] font-bold uppercase text-gray-400 tracking-wider mt-1">{ j.Type } | { j.Schedule }</span>
+			</div>
+			if j.Active {
+				<span class="w-3 h-3 rounded-full bg-green-500 shadow-sm"></span>
+			} else {
+				<span class="w-3 h-3 rounded-full bg-red-400 shadow-sm"></span>
+			}
+		</div>
+	}
+}
+
+templ jobConfigDetailsPanel(j JobConfig) {
+	<div class="bg-white border border-gray-200 rounded-xl p-8 shadow-sm" id="jobconfig-details-wrapper">
+		<h2 class="text-xl font-black tracking-widest text-green-x-dark uppercase mb-6 border-b border-gray-100 pb-4">
+			if j.EncodedKey == "" {
+				Create Job Config
+			} else {
+				Edit Job Config
+			}
+		</h2>
+
+		<div id="job-save-response"></div>
+
+		<form hx-post="/admin/api/engineering/jobconfig" hx-target="#job-save-response" id="jc-form" class="flex flex-col gap-5" onsubmit="window.syncAllJSONs()">
+			<input type="hidden" name="id" value={ j.EncodedKey } />
+			
+			<div class="flex items-center justify-between bg-gray-50 p-3 rounded-lg border border-gray-200 mb-2">
+				<span class="text-xs font-bold text-gray-600 uppercase tracking-widest">Active Status</span>
+				<label class="relative inline-flex items-center cursor-pointer">
+					<input type="checkbox" name="active" value="true" class="sr-only peer" checked?={ j.Active } />
+					<div class="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-hl"></div>
+				</label>
+			</div>
+
+			<div class="grid grid-cols-2 gap-4">
+				<div>
+					<label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">Job Name</label>
+					<input type="text" name="name" value={ j.Name } required class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:border-hl outline-none"/>
+				</div>
+				<div class="flex items-center pt-5 pl-2">
+					<label class="flex items-center gap-2 cursor-pointer">
+						<input type="checkbox" name="country_agnostic" value="true" class="rounded border-gray-300 text-hl focus:ring-hl/20" checked?={ j.CountryAgnostic } />
+						<span class="text-xs font-bold text-gray-700 uppercase tracking-wider">Country Agnostic</span>
+					</label>
+				</div>
+			</div>
+
+			<div class="grid grid-cols-2 gap-4">
+				<div>
+					<label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">Job Type</label>
+					<select name="type" id="jc-type" onchange="window.toggleJobType(this.value)" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:border-hl outline-none bg-white">
+						<option value="dataform" selected?={ j.Type == "dataform" }>Dataform</option>
+						<option value="cloud-function" selected?={ j.Type == "cloud-function" }>Cloud Function</option>
+					</select>
+				</div>
+				<div>
+					<label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">Schedule Type</label>
+					<select name="schedule_tags" id="jc-schedule" onchange="window.toggleSchedType(this.value)" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:border-hl outline-none bg-white">
+						<option value="">Cron Based</option>
+						<option value="cyclical" selected?={ j.Schedule == "cyclical" }>Cyclical</option>
+					</select>
+				</div>
+			</div>
+
+			<div id="jc-link-block">
+				<label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">Link (Cloud Function)</label>
+				<input type="text" name="link" value={ j.Link } class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:border-hl outline-none"/>
+			</div>
+
+			<div class="grid grid-cols-2 gap-4" id="jc-repo-block">
+				<div>
+					<label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">Repository (Dataform)</label>
+					<input type="text" name="repository" value={ j.Repository } class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:border-hl outline-none"/>
+				</div>
+				<div>
+					<label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">Unique Tag</label>
+					<input type="text" name="unique_tag" value={ j.UniqueTag } class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:border-hl outline-none"/>
+				</div>
+			</div>
+
+			<div>
+				<label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">Default Cron Schedule</label>
+				<input type="text" name="cron_default" id="jc-cron-default" oninput="window.updateCronDesc(this)" value={ j.CronDefault } class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-mono focus:border-hl outline-none"/>
+				<span class="cron-desc text-[10px] font-bold text-green-x-light mt-1 block"></span>
+			</div>
+
+			<div class="border border-gray-200 rounded-lg bg-gray-50 p-4 mt-2">
+				<label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-2 flex justify-between">
+					<span>Country Overrides</span>
+					<span class="text-gray-400 font-normal normal-case">e.g. ["za", "ke"]</span>
+				</label>
+				<div class="flex gap-4">
+					for _, c := range []string{"za", "ke", "ug", "tz", "zm"} {
+						<label class="flex items-center gap-2 cursor-pointer">
+							<input type="checkbox" data-country-cb value={ c } class="rounded border-gray-300 text-hl focus:ring-hl/20" />
+							<span class="text-xs font-bold text-gray-700 uppercase">{ c }</span>
+						</label>
+					}
+				</div>
+				<input type="hidden" name="countries_override_json" id="jc-countries-json" value={ j.CountriesOverride } />
+			</div>
+
+			<div class="border border-gray-200 rounded-lg bg-gray-50 p-4 mt-2" id="jc-cron-override-block">
+				<div class="flex justify-between items-center mb-2">
+					<label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wider">
+						<span>Country Cron Overrides</span>
+						<span class="text-gray-400 font-normal normal-case ml-2">e.g. { `{"za": "0 8 * * *"}` }</span>
+					</label>
+					<button type="button" onclick="window.addCronRow()" class="text-[10px] font-bold text-hl hover:text-green-x-dark uppercase tracking-widest">+ Add</button>
+				</div>
+				<div id="cron-rows-container" class="flex flex-col gap-2"></div>
+				<input type="hidden" name="cron_override_json" id="jc-cron-json" value={ j.CronOverride } />
+			</div>
+			<div id="jc-cron-disabled-msg" class="hidden text-xs text-gray-400 italic">Cron overrides disabled when schedule tags is cyclical.</div>
+
+			<div class="border border-gray-200 rounded-lg bg-gray-50 p-4 mt-2" id="jc-ustc-block">
+				<label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-3">Update Source Tables Config</label>
+				<div class="flex flex-col gap-4 pl-2 border-l-2 border-gray-200">
+					<label class="flex items-center gap-2 cursor-pointer">
+						<input type="checkbox" id="ustc-enable" onchange="document.getElementById('ustc-details-block').style.display = this.checked ? 'flex' : 'none'" class="rounded border-gray-300 text-hl focus:ring-hl/20" />
+						<span class="text-xs font-bold text-gray-700 uppercase">Enable Source Table Updates</span>
+					</label>
+					
+					<div id="ustc-details-block" class="flex flex-col gap-4 hidden">
+						<div>
+							<label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">Max Staleness (minutes)</label>
+							<input type="number" id="ustc-staleness" class="w-32 border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:border-hl outline-none"/>
+						</div>
+						
+						<div class="bg-white p-3 rounded border border-gray-200">
+							<div class="flex justify-between items-center mb-2">
+								<label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wider">Staleness Overrides</label>
+								<button type="button" onclick="window.addUstcOverrideRow()" class="text-[10px] font-bold text-hl hover:text-green-x-dark uppercase tracking-widest">+ Add</button>
+							</div>
+							<div id="ustc-override-rows" class="flex flex-col gap-2"></div>
+						</div>
+
+						<div class="bg-white p-3 rounded border border-gray-200">
+							<div class="flex justify-between items-center mb-2">
+								<label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wider">Exclusions List</label>
+								<button type="button" onclick="window.addUstcExclusionRow()" class="text-[10px] font-bold text-hl hover:text-green-x-dark uppercase tracking-widest">+ Add</button>
+							</div>
+							<div id="ustc-exclusion-rows" class="flex flex-col gap-2"></div>
+						</div>
+					</div>
+				</div>
+				<input type="hidden" name="update_source_tables_config_json" id="jc-ustc-json" value={ j.UpdateSourceTablesConfig } />
+			</div>
+
+			<div class="border border-gray-200 rounded-lg bg-gray-50 p-4 mt-2">
+				<label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-3">Mailing List Config</label>
+				<div class="flex flex-col gap-4 pl-2 border-l-2 border-gray-200">
+					<label class="flex items-center gap-2 cursor-pointer">
+						<input type="checkbox" id="ml-enable" onchange="document.getElementById('ml-details-block').style.display = this.checked ? 'block' : 'none'" class="rounded border-gray-300 text-hl focus:ring-hl/20" />
+						<span class="text-xs font-bold text-gray-700 uppercase">Enable Email Sending</span>
+					</label>
+					
+					<div id="ml-details-block" class="bg-white p-3 rounded border border-gray-200 hidden">
+						<div class="flex justify-between items-center mb-2">
+							<label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wider">Recipient Emails</label>
+							<button type="button" onclick="window.addMlRow()" class="text-[10px] font-bold text-hl hover:text-green-x-dark uppercase tracking-widest">+ Add Group</button>
+						</div>
+						<div id="ml-rows" class="flex flex-col gap-3"></div>
+					</div>
+				</div>
+				<input type="hidden" name="mailing_list_json" id="jc-ml-json" value={ j.MailingList } />
+			</div>
+
+			<div class="border-t border-gray-100 pt-6 mt-2 flex justify-end">
+				<button type="submit" class="bg-hl hover:bg-green-x-dark text-white font-bold text-xs uppercase tracking-widest px-8 py-3 rounded-lg transition-colors shadow-sm">Save Configuration</button>
+			</div>
+		</form>
+	</div>
+}

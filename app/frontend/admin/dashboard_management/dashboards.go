@@ -1,19 +1,32 @@
-package base
+package dashboard_management
 
 import (
 	"net/http"
 	"ujuzi_reloaded/app/backend/auth"
+	"log"
 
 	"github.com/go-chi/chi/v5"
 )
 
-func (m module) adminDashboardsLoader(w http.ResponseWriter, r *http.Request) error {
+type Module struct {
+	l            *log.Logger
+	sessionStore auth.Store
+}
+
+func NewModule(l *log.Logger, sessionStore auth.Store) *Module {
+	return &Module{
+		l:            l,
+		sessionStore: sessionStore,
+	}
+}
+
+func (m *Module) AdminDashboardsLoader(w http.ResponseWriter, r *http.Request) error {
 	ctx := r.Context()
 	dashboards := m.getAllDashboards(r)
 	return adminDashboardsPage(dashboards).Render(ctx, w)
 }
 
-func (m module) adminDashboardDetails(w http.ResponseWriter, r *http.Request) error {
+func (m *Module) AdminDashboardDetails(w http.ResponseWriter, r *http.Request) error {
 	ctx := r.Context()
 	dashID := chi.URLParam(r, "id")
 
@@ -28,13 +41,12 @@ func (m module) adminDashboardDetails(w http.ResponseWriter, r *http.Request) er
 	return dashDetailsPanel(d).Render(ctx, w)
 }
 
-func (m module) adminSaveDashboard(w http.ResponseWriter, r *http.Request) error {
+func (m *Module) AdminSaveDashboard(w http.ResponseWriter, r *http.Request) error {
 	ctx := r.Context()
 	r.ParseForm()
 
 	dashID := r.FormValue("id")
 
-	// Parse parameters as strings for EditBoxes
 	params := auth.DashParams{
 		CountryCode: r.FormValue("param_country_code"),
 		Branch:      r.FormValue("param_branch"),
@@ -79,7 +91,7 @@ func (m module) adminSaveDashboard(w http.ResponseWriter, r *http.Request) error
 	return nil
 }
 
-func (m module) adminDeleteDashboard(w http.ResponseWriter, r *http.Request) error {
+func (m *Module) AdminDeleteDashboard(w http.ResponseWriter, r *http.Request) error {
 	ctx := r.Context()
 	dashID := chi.URLParam(r, "id")
 	_, err := m.sessionStore.Db().Collection("dashboards").Doc(dashID).Delete(ctx)
@@ -89,4 +101,21 @@ func (m module) adminDeleteDashboard(w http.ResponseWriter, r *http.Request) err
 
 	w.Header().Set("HX-Refresh", "true")
 	return nil
+}
+
+func (m *Module) getAllDashboards(r *http.Request) []auth.Dashboard {
+	ctx := r.Context()
+	var dashes []auth.Dashboard
+	iter := m.sessionStore.Db().Collection("dashboards").Documents(ctx)
+	for {
+		doc, err := iter.Next()
+		if err != nil {
+			break
+		}
+		var d auth.Dashboard
+		doc.DataTo(&d)
+		d.ID = doc.Ref.ID
+		dashes = append(dashes, d)
+	}
+	return dashes
 }
