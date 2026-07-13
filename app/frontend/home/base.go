@@ -1,11 +1,11 @@
 ﻿package base
 
 import (
-	"log"
-	"net/http"
 	"controlroom/app/backend/auth"
 	"controlroom/app/backend/mid"
 	"controlroom/app/backend/web"
+	"log"
+	"net/http"
 )
 
 func stdMid(l *log.Logger, additionalMid ...web.Middleware) []web.Middleware {
@@ -35,6 +35,7 @@ func InitModule(
 
 	// Protected routes (Requires Auth)
 	app.Handle(http.MethodGet, "/", m.homeHandler, stdMid(l, sessionStore.Mid)...)
+
 }
 
 type module struct {

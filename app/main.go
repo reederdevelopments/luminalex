@@ -2,6 +2,12 @@ package main
 
 import (
 	"context"
+	"controlroom/app/backend/auth"
+	"controlroom/app/backend/mid"
+	"controlroom/app/backend/web"
+	"controlroom/app/backend/webx"
+	costing "controlroom/app/frontend/costing"
+	base "controlroom/app/frontend/home"
 	"embed"
 	"errors"
 	"fmt"
@@ -10,11 +16,6 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
-	"controlroom/app/backend/auth"
-	"controlroom/app/backend/mid"
-	"controlroom/app/backend/web"
-	"controlroom/app/backend/webx"
-	base "controlroom/app/frontend/dashboards"
 
 	"github.com/ardanlabs/conf/v3"
 	"github.com/gorilla/sessions"
@@ -137,6 +138,7 @@ func run(l *log.Logger) error {
 	// Initialize base module (Auth & Core routes)
 	// We now pass coreDBs down the chain.
 	base.InitModule(l, app, sessionStore)
+	costing.InitModule(l, app, sessionStore)
 
 	// Start Server
 	host := fmt.Sprintf("0.0.0.0:%d", cfg.Port)
