@@ -1,4 +1,4 @@
-module ujuzi_reloaded
+module controlroom
 
 go 1.25.8
 

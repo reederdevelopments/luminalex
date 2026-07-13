@@ -1,8 +1,8 @@
 substitutions:
   _REGION: africa-south1
   _PROJECT_ID: df-frontend
-  _REPO: ujuzi_reloaded
-  _IMAGE: ujuzi_reloaded
+  _REPO: controlroom
+  _IMAGE: controlroom
 
 steps:
   # Step 1: Build the Docker image using the multi-stage Dockerfile

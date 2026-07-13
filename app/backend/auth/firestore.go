@@ -6,17 +6,22 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"sort"
 	"strings"
 	"sync"
 	"time"
-	"ujuzi_reloaded/app/backend/collection"
-	"ujuzi_reloaded/app/backend/web"
+	"controlroom/app/backend/web"
 
 	"cloud.google.com/go/firestore"
 	"github.com/Rockup-Consulting/std/x/randx"
 	"github.com/markbates/goth"
 	"google.golang.org/api/iterator"
+)
+
+const (
+	// Users is the name of the 'users' collection.
+	Users = "users"
+	// Sessions is the name of the 'sessions' collection.
+	Sessions = "sessions"
 )
 
 type FireStore struct {
@@ -51,7 +56,7 @@ func (f *FireStore) Get(ctx context.Context, now time.Time, authToken string) (U
 		session = cached.(Session)
 	} else {
 		// Cache miss, fetch from Firestore
-		s, err := f.db.Collection(collection.Sessions).Doc(token.SessionID).Get(ctx)
+		s, err := f.db.Collection(Sessions).Doc(token.SessionID).Get(ctx)
 		if err != nil {
 			f.l.Printf("err fetching session: %s", err)
 			return User{}, Session{}, err
@@ -84,7 +89,7 @@ func (f *FireStore) Get(ctx context.Context, now time.Time, authToken string) (U
 		user = cached.(User)
 	} else {
 		// Cache miss, fetch from Firestore
-		doc, err := f.db.Collection(collection.Users).Doc(session.UserID).Get(ctx)
+		doc, err := f.db.Collection(Users).Doc(session.UserID).Get(ctx)
 		if err != nil {
 			return User{}, Session{}, err
 		}
@@ -95,32 +100,7 @@ func (f *FireStore) Get(ctx context.Context, now time.Time, authToken string) (U
 		// Manually map ID due to firestore:"-" struct tag
 		user.ID = doc.Ref.ID
 
-		// Augment user tools with tools from their groups
-		if len(user.Groups) > 0 {
-			toolSet := make(map[string]struct{})
-			for _, tool := range user.Tools {
-				toolSet[tool] = struct{}{}
-			}
 
-			for _, groupID := range user.Groups {
-				groupDoc, err := f.db.Collection("groups").Doc(groupID).Get(ctx)
-				if err == nil {
-					var group Group
-					if err := groupDoc.DataTo(&group); err == nil {
-						for _, tool := range group.Tools {
-							toolSet[tool] = struct{}{}
-						}
-					}
-				}
-			}
-
-			var tools []string
-			for tool := range toolSet {
-				tools = append(tools, tool)
-			}
-			sort.Strings(tools)
-			user.Tools = tools
-		}
 
 		// Store in cache
 		f.userCache.Store(user.ID, user)
@@ -148,7 +128,7 @@ func (f *FireStore) HttpGet(ctx context.Context, now time.Time, w http.ResponseW
 func (f *FireStore) HttpCreate(ctx context.Context, now time.Time, u goth.User, w http.ResponseWriter, r *http.Request) error {
 	normalizedEmail := strings.ToLower(strings.TrimSpace(u.Email))
 
-	iter := f.db.Collection(collection.Users).Where("Email", "==", normalizedEmail).Documents(ctx)
+	iter := f.db.Collection(Users).Where("Email", "==", normalizedEmail).Documents(ctx)
 	doc, err := iter.Next()
 
 	var user User
@@ -166,7 +146,7 @@ func (f *FireStore) HttpCreate(ctx context.Context, now time.Time, u goth.User, 
 				LastSyncTime: now.Unix(),
 				IsAdmin:      false,
 			}
-			if _, err := f.db.Collection(collection.Users).Doc(user.ID).Set(ctx, user); err != nil {
+			if _, err := f.db.Collection(Users).Doc(user.ID).Set(ctx, user); err != nil {
 				return err
 			}
 		} else {
@@ -187,7 +167,7 @@ func (f *FireStore) HttpCreate(ctx context.Context, now time.Time, u goth.User, 
 		user.Thumbnail = u.AvatarURL
 		user.LastSyncTime = now.Unix()
 
-		if _, err := f.db.Collection(collection.Users).Doc(user.ID).Set(ctx, user); err != nil {
+		if _, err := f.db.Collection(Users).Doc(user.ID).Set(ctx, user); err != nil {
 			return fmt.Errorf("updating existing user: %w", err)
 		}
 	}
@@ -206,7 +186,7 @@ func (f *FireStore) HttpCreate(ctx context.Context, now time.Time, u goth.User, 
 		Invalidated: false,
 	}
 
-	if _, err := f.db.Collection(collection.Sessions).Doc(id).Set(ctx, s); err != nil {
+	if _, err := f.db.Collection(Sessions).Doc(id).Set(ctx, s); err != nil {
 		return err
 	}
 
@@ -241,7 +221,7 @@ func (f *FireStore) HttpInvalidate(ctx context.Context, now time.Time, w http.Re
 		return err
 	}
 
-	if _, err := f.db.Collection(collection.Sessions).Doc(session.ID).Update(ctx, []firestore.Update{
+	if _, err := f.db.Collection(Sessions).Doc(session.ID).Update(ctx, []firestore.Update{
 		{Path: "Invalidated", Value: true},
 	}); err != nil {
 		f.l.Printf("error invalidating session: %s", err)
@@ -260,7 +240,7 @@ func (f *FireStore) Create(ctx context.Context, now time.Time, u goth.User) (*ht
 
 func (f *FireStore) GetUserByEmail(ctx context.Context, email string) (User, error) {
 	normalizedEmail := strings.ToLower(strings.TrimSpace(email))
-	iter := f.db.Collection(collection.Users).Where("Email", "==", normalizedEmail).Limit(1).Documents(ctx)
+	iter := f.db.Collection(Users).Where("Email", "==", normalizedEmail).Limit(1).Documents(ctx)
 	doc, err := iter.Next()
 	if err != nil {
 		if err == iterator.Done {
@@ -307,4 +287,12 @@ func deleteCookieAndRedirect(w http.ResponseWriter, r *http.Request, path string
 
 func (f *FireStore) Db() *firestore.Client {
 	return f.db
+}
+
+func NewFirestoreClient(ctx context.Context, googleID string, dbID string) (*firestore.Client, error) {
+	client, err := firestore.NewClientWithDatabase(ctx, googleID, dbID)
+	if err != nil {
+		return nil, err
+	}
+	return client, nil
 }

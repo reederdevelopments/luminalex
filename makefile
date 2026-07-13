@@ -28,13 +28,13 @@ sha:
 projectID="df-frontend"
 region="africa-south1"
 serviceAccount="ujuzi-601@df-frontend.iam.gserviceaccount.com"
-tag="${region}-docker.pkg.dev/${projectID}/ujuzi_reloaded/ujuzi_reloaded:${sha}"
+tag="${region}-docker.pkg.dev/${projectID}/controlroom/controlroom:${sha}"
 
 # https://cloud.google.com/artifact-registry/docs/docker/store-docker-container-images
 build-container:
 	@templ generate
 	@tailwindcss -c ./tailwind.config.js -i ./in.css -o ./app/assets/styles/main.css --minify
-	@env GOOS=linux GOARCH=amd64 go build -o ./bin/linux_amd64/ujuzi_reloaded ./app
+	@env GOOS=linux GOARCH=amd64 go build -o ./bin/linux_amd64/controlroom ./app
 	@docker build -t ${tag} .
 
 # If the push fails with the error below, then you must re-auth your gcloud CLI
@@ -50,7 +50,7 @@ auth:
 
 # https://cloud.google.com/sdk/gcloud/reference/run/deploy#--set-env-vars
 revise:
-	@gcloud run deploy ujuzi_reloaded \
+	@gcloud run deploy controlroom \
 		--image ${tag} \
 		--service-account ${serviceAccount}\
 		--region=${region} \

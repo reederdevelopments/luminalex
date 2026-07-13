@@ -2,13 +2,13 @@ package mid
 
 import (
 	"context"
+	"controlroom/app/backend/web"
 	"errors"
 	"fmt"
 	"log"
 	"net/http"
 	"runtime/debug"
 	"strings"
-	"ujuzi_reloaded/app/backend/web"
 
 	"github.com/go-chi/chi/v5/middleware"
 )

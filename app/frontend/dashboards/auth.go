@@ -3,9 +3,8 @@ package base
 import (
 	"context"
 	"net/http"
-	"ujuzi_reloaded/app/backend/auth"
-	"ujuzi_reloaded/app/backend/flash2"
-	"ujuzi_reloaded/app/backend/web"
+	"controlroom/app/backend/auth"
+	"controlroom/app/backend/web"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/markbates/goth/gothic"
@@ -30,11 +29,7 @@ func (m module) signinLoader(w http.ResponseWriter, r *http.Request) error {
 		}
 	}
 
-	// Fetch flash messages for rendering
-	f, hasFlash := flash2.Get(w, r, now)
-
-	// Ensure arguments are passed accurately to match templ signature
-	return signinPage(f, hasFlash).Render(ctx, w)
+	return signinPage().Render(ctx, w)
 }
 
 func (m module) beginAuthHandler(w http.ResponseWriter, r *http.Request) error {

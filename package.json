@@ -1,5 +1,5 @@
 {
-  "name": "ujuzi_reloaded",
+  "name": "controlroom",
   "devDependencies": {
     "@tailwindcss/forms": "^0.5.10",
     "@tailwindcss/typography": "^0.5.16"

@@ -1,6 +1,6 @@
 # ---- Stage 1: Builder ----
 # This stage installs all necessary tools and builds the application.
-FROM golang:1.23-alpine AS builder
+FROM golang:1.25-alpine AS builder
 
 # Install build dependencies: Node.js, npm, git (for Go modules)
 RUN apk add --no-cache nodejs npm git
@@ -32,7 +32,7 @@ RUN tailwindcss -c ./tailwind.config.js -i ./in.css -o ./app/assets/styles/main.
 # 3. Compile the Go binary for a minimal Linux environment
 # The -a flag forces rebuilding of packages that are already up-to-date.
 # -ldflags "-s -w" strips debugging information, reducing binary size.
-RUN CGO_ENABLED=0 GOOS=linux go build -a -ldflags "-s -w" -o /ujuzi_reloaded ./app
+RUN CGO_ENABLED=0 GOOS=linux go build -a -ldflags "-s -w" -o /controlroom ./app
 
 # ---- Stage 2: Final Image ----
 # This stage creates the final, minimal image for production.
@@ -45,10 +45,10 @@ RUN apk --no-cache add ca-certificates
 WORKDIR /root/
 
 # Copy the compiled binary from the 'builder' stage
-COPY --from=builder /ujuzi_reloaded .
+COPY --from=builder /controlroom .
 
 # Expose the port the app runs on (optional, but good practice)
 EXPOSE 3080
 
 # The command to run the application
-CMD ["./ujuzi_reloaded"]
+CMD ["./controlroom"]

@@ -1,17 +1,16 @@
 package base
 
 import (
-	"ujuzi_reloaded/app/backend/flash2"
-	"ujuzi_reloaded/app/backend/ui/layout"
+	"controlroom/app/backend/ui/layout"
 )
 
-templ signinPage(flash flash2.Flash, hasFlash bool) {
+templ signinPage() {
 	@layout.HtmlFullPage("Ujuzi Login") {
 		<div class="relative w-full h-full">
 			<div
 				class="z-50 block fixed inset-x-4 lg:top-0 lg:left-10 text-white max-w-xl"
 			>
-				@signinForm(hasFlash, flash)
+				@signinForm()
 			</div>
 			<div class="hidden md:block w-full h-full">
 				<img
@@ -42,7 +41,7 @@ templ signinPage(flash flash2.Flash, hasFlash bool) {
 	}
 }
 
-templ signinForm(hasFlash bool, flash flash2.Flash) {
+templ signinForm() {
 	<div
 		id="logo"
 		class="md:flex gap-10 items-center mt-20"
@@ -78,10 +77,5 @@ templ signinForm(hasFlash bool, flash flash2.Flash) {
 				<span class="text-sm font-semibold leading-6">Google</span>
 			</button>
 		</div>
-		if hasFlash {
-			<div class="mt-10 text-red-800 bg-white rounded p-4">
-				{ flash.Msg }
-			</div>
-		}
 	</div>
 }
