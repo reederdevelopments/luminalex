@@ -33,16 +33,40 @@ func InitModule(l *log.Logger, app *web.App, sessionStore auth.Store) {
 		cache:        costCache,
 	}
 
-	// Kick off the comprehensive asynchronous cache preloader
+	// 1. Kick off the asynchronous cache preloaders
 	go m.preloadCacheWorker()
+	go m.preloadFastCacheWorker() // 10 min preloader for 90-day
 
-	// Main Layout Route
 	app.Handle(http.MethodGet, "/costing", m.costingPageHandler, stdMid(l, sessionStore.Mid)...)
+
+	// Overall Tab Routes (Executive Summary)
+	app.Handle(http.MethodGet, "/costing/overall", m.overallTabHandler, stdMid(l, sessionStore.Mid)...)
+	app.Handle(http.MethodGet, "/costing/overall/metrics", m.overallMetricsHandler, stdMid(l, sessionStore.Mid)...)
 
 	// Datastream Tab Routes
 	app.Handle(http.MethodGet, "/costing/datastream", m.datastreamTabHandler, stdMid(l, sessionStore.Mid)...)
 	app.Handle(http.MethodGet, "/costing/datastream/metrics", m.datastreamMetricsHandler, stdMid(l, sessionStore.Mid)...)
 	app.Handle(http.MethodGet, "/costing/datastream/details", m.datastreamProjectDetailsHandler, stdMid(l, sessionStore.Mid)...)
+
+	// 3rd Party Tab Routes
+	app.Handle(http.MethodGet, "/costing/thirdparty", m.thirdpartyTabHandler, stdMid(l, sessionStore.Mid)...)
+	app.Handle(http.MethodGet, "/costing/thirdparty/metrics", m.thirdpartyMetricsHandler, stdMid(l, sessionStore.Mid)...)
+
+	// Dataform Tab Routes
+	app.Handle(http.MethodGet, "/costing/dataform", m.dataformTabHandler, stdMid(l, sessionStore.Mid)...)
+	app.Handle(http.MethodGet, "/costing/dataform/metrics", m.dataformMetricsHandler, stdMid(l, sessionStore.Mid)...)
+	app.Handle(http.MethodGet, "/costing/dataform/details", m.dataformProjectDetailsHandler, stdMid(l, sessionStore.Mid)...)
+
+	// Users Tab Routes
+	app.Handle(http.MethodGet, "/costing/users", m.usersTabHandler, stdMid(l, sessionStore.Mid)...)
+	app.Handle(http.MethodGet, "/costing/users/metrics", m.usersMetricsHandler, stdMid(l, sessionStore.Mid)...)
+	app.Handle(http.MethodGet, "/costing/users/details", m.usersDetailsHandler, stdMid(l, sessionStore.Mid)...)
+
+	// DataStudio Tab Routes
+	app.Handle(http.MethodGet, "/costing/datastudio", m.datastudioTabHandler, stdMid(l, sessionStore.Mid)...)
+	app.Handle(http.MethodGet, "/costing/datastudio/metrics", m.datastudioMetricsHandler, stdMid(l, sessionStore.Mid)...)
+	app.Handle(http.MethodGet, "/costing/datastudio/details", m.datastudioDetailsHandler, stdMid(l, sessionStore.Mid)...)
+	app.Handle(http.MethodPost, "/costing/datastudio/mapping", m.saveDSMappingHandler, stdMid(l, sessionStore.Mid)...)
 }
 
 func (m module) costingPageHandler(w http.ResponseWriter, r *http.Request) error {

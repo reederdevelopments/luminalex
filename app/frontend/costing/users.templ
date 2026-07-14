@@ -1,0 +1,299 @@
+package costing
+
+import (
+	"strings"
+)
+
+templ usersTab(data CostingDashboardData) {
+	<div class="flex flex-col gap-4 animate-fade-in h-full">
+		<script>
+			if (window.parent && window.parent.document) {
+				const menuBtn = window.parent.document.querySelector('#ujuzi-menu-btn div');
+				if (menuBtn) { menuBtn.innerText = 'MENU - USER COSTING'; }
+			}
+		</script>
+
+		<div class="bg-white p-4 rounded-xl shadow-sm border border-gray-200 flex flex-col gap-4 shrink-0 relative z-40">
+			<div class="flex flex-wrap items-center gap-2 border-b border-gray-100 pb-2">
+				<span class="text-xs font-bold text-gray-400 uppercase tracking-widest mr-2">Quick Select:</span>
+				<button type="button" onclick="setUsersDateRange('today')" class="px-3 py-1 text-xs font-semibold text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-full transition-colors">Today</button>
+				<button type="button" onclick="setUsersDateRange('yesterday')" class="px-3 py-1 text-xs font-semibold text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-full transition-colors">Yesterday</button>
+				<button type="button" onclick="setUsersDateRange('current_week')" class="px-3 py-1 text-xs font-semibold text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-full transition-colors">Current Week</button>
+				<button type="button" onclick="setUsersDateRange('last_week')" class="px-3 py-1 text-xs font-semibold text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-full transition-colors">Last Week</button>
+				<button type="button" onclick="setUsersDateRange('current_month')" class="px-3 py-1 text-xs font-semibold text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-full transition-colors">Current Month</button>
+				<button type="button" onclick="setUsersDateRange('last_month')" class="px-3 py-1 text-xs font-semibold text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-full transition-colors">Last Month</button>
+				<button type="button" onclick="setUsersDateRange('last_30')" class="px-3 py-1 text-xs font-semibold text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-full transition-colors">Last 30 Days</button>
+				<button type="button" onclick="setUsersDateRange('last_90')" class="px-3 py-1 text-xs font-semibold text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-full transition-colors">Last 90 Days</button>
+			</div>
+
+			<form 
+				id="users-costing-form"
+				hx-get="/costing/users/metrics" 
+				hx-target="#users-metrics"
+				hx-trigger="submit, load"
+				hx-indicator=".htmx-indicator"
+				class="flex flex-wrap gap-4 items-center w-full"
+			>
+				<div class="flex items-center gap-2 pr-4 border-r border-gray-200">
+					<input type="date" id="us_start_date" name="start_date" value={ data.StartDate } class="text-sm rounded-md border-gray-300 focus:ring-green-x-light focus:border-green-x-light py-1.5" />
+					<span class="text-xs font-semibold text-gray-400">TO</span>
+					<input type="date" id="us_end_date" name="end_date" value={ data.EndDate } class="text-sm rounded-md border-gray-300 focus:ring-green-x-light focus:border-green-x-light py-1.5" />
+				</div>
+
+				<select name="project" class="text-sm rounded-md border-gray-300 focus:ring-green-x-light focus:border-green-x-light py-1.5 max-w-[200px]">
+					<option value="" selected>All Projects</option>
+					<option value="df-fs-insights">df-fs-insights</option>
+					<option value="df-ps-south-africa">df-ps-south-africa</option>
+					<option value="df-ps-kenya">df-ps-kenya</option>
+					<option value="df-ps-uganda">df-ps-uganda</option>
+					<option value="df-ps-zambia">df-ps-zambia</option>
+					<option value="df-ps-tanzania">df-ps-tanzania</option>
+					<option value="df-ps-staging">df-ps-staging</option>
+					<option value="df-fs-rt-insights">df-fs-rt-insights</option>
+				</select>
+
+				<select name="user_email" class="text-sm rounded-md border-gray-300 focus:ring-green-x-light focus:border-green-x-light py-1.5 max-w-[250px] ml-4 border-l border-gray-200 pl-4">
+					<option value="" selected>All Users</option>
+					for _, email := range data.Labels {
+						<option value={ email }>{ email }</option>
+					}
+				</select>
+
+				<select name="grouping" class="text-sm rounded-md border-gray-300 focus:ring-green-x-light focus:border-green-x-light py-1.5 ml-4 border-l border-gray-200 pl-4">
+					<option value="daily" selected>Daily Graph View</option>
+					<option value="monthly">Monthly Graph View</option>
+					<option value="yearly">Yearly Graph View</option>
+				</select>
+				
+				<button type="submit" class="ml-auto bg-green-x-dark text-white px-5 py-2 rounded-md text-xs font-bold uppercase tracking-wider hover:bg-green-x-light transition-all shadow-sm">
+					Apply Filters
+				</button>
+			</form>
+		</div>
+
+		<div id="users-metrics" class="flex flex-col gap-6 h-full relative z-30"></div>
+
+		<script>
+			function setUsersDateRange(type) {
+				const startInput = document.getElementById('us_start_date');
+				const endInput = document.getElementById('us_end_date');
+				const today = new Date();
+				let start = new Date(today);
+				let end = new Date(today);
+
+				switch(type) {
+					case 'today': break;
+					case 'yesterday':
+						start.setDate(today.getDate() - 1);
+						end.setDate(today.getDate() - 1);
+						break;
+					case 'current_week':
+						const day1 = start.getDay();
+						start.setDate(start.getDate() - day1 + (day1 === 0 ? -6 : 1));
+						break;
+					case 'last_week':
+						const day2 = start.getDay();
+						start.setDate(start.getDate() - day2 + (day2 === 0 ? -6 : 1) - 7);
+						end = new Date(start);
+						end.setDate(start.getDate() + 6);
+						break;
+					case 'current_month':
+						start = new Date(today.getFullYear(), today.getMonth(), 1); break;
+					case 'last_month':
+						start = new Date(today.getFullYear(), today.getMonth() - 1, 1); 
+						end = new Date(today.getFullYear(), today.getMonth(), 0); break;
+					case 'last_30':
+						start.setDate(today.getDate() - 30); break;
+					case 'last_90':
+						start.setDate(today.getDate() - 90); break;
+				}
+
+				const fmt = d => {
+					const offset = d.getTimezoneOffset();
+					return new Date(d.getTime() - (offset*60*1000)).toISOString().split('T')[0];
+				};
+
+				if (start && end) {
+					startInput.value = fmt(start);
+					endInput.value = fmt(end);
+					document.getElementById('users-costing-form').dispatchEvent(new Event('submit', { cancelable: true }));
+				}
+			}
+		</script>
+	</div>
+}
+
+templ usersMetrics(tableData UserTableData, chartDataJSON string, start string, end string, projectFilter string) {
+	<div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden shrink-0 relative z-30">
+		<div class="px-4 py-3 border-b border-gray-200 bg-gray-50 flex justify-between items-center">
+			<h2 class="text-sm font-bold text-gray-800 uppercase tracking-wide">User Executions <span class="text-gray-400 font-normal lowercase ml-2">(Information Schema)</span></h2>
+		</div>
+		<div class="overflow-x-visible w-full">
+			<table class="min-w-full divide-y divide-gray-200">
+				<thead class="bg-gray-50">
+					<tr>
+						<th scope="col" class="px-6 py-2 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">User Email</th>
+						<th scope="col" class="px-6 py-2 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">Total Size Billed</th>
+						<th scope="col" class="px-6 py-2 text-right text-xs font-bold text-gray-800 uppercase tracking-wider">Total Cost</th>
+					</tr>
+				</thead>
+				<tbody class="bg-white divide-y divide-gray-200">
+					for _, u := range tableData.Users {
+						<tr 
+							class="hover:bg-blue-50 transition-colors cursor-pointer group"
+							hx-get={ "/costing/users/details?user_email=" + u.URLSafeEmail + "&start_date=" + start + "&end_date=" + end + "&project=" + projectFilter } 
+							hx-target={ "#us-details-box-" + u.SafeID }
+							hx-swap="innerHTML"
+							hx-trigger="click once"
+							data-row-target={ "us-row-" + u.SafeID }
+							onclick="toggleRow(this.getAttribute('data-row-target'))"
+						>
+							<td class="px-6 py-2 whitespace-nowrap text-sm font-bold text-blue-600 group-hover:text-blue-800 flex items-center gap-2">
+								<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-3 h-3 text-gray-400 transition-transform group-data-[open=true]:rotate-90">
+									<path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
+								</svg>
+								{ u.UserEmail }
+							</td>
+							<td class="px-6 py-2 whitespace-nowrap text-right text-sm text-gray-500">{ u.TotalSize }</td>
+							<td class="px-6 py-2 whitespace-nowrap text-right text-sm font-black text-gray-900 bg-gray-50/30">{ u.TotalCost }</td>
+						</tr>
+						
+						<tr id={ "us-row-" + u.SafeID } class="hidden bg-gray-50/40">
+							<td colspan="3" class="px-6 py-3 border-b border-gray-200">
+								<div id={ "us-details-box-" + u.SafeID } class="w-full">
+									<div class="flex items-center justify-center py-4 gap-2 text-xs text-gray-400 font-medium animate-pulse">
+										Extracting job classifications...
+									</div>
+								</div>
+							</td>
+						</tr>
+					}
+					if len(tableData.Users) == 0 {
+						<tr><td colspan="3" class="px-6 py-6 text-center text-sm text-gray-500">No user queries found for this date range.</td></tr>
+					}
+				</tbody>
+				<tfoot class="bg-gray-800 text-white">
+					<tr>
+						<th scope="col" class="px-6 py-2 text-left text-sm font-black uppercase tracking-wider">Grand Total</th>
+						<th scope="col" class="px-6 py-2 text-right text-sm font-bold tracking-wider">{ tableData.GrandSize }</th>
+						<th scope="col" class="px-6 py-2 text-right text-sm font-black uppercase tracking-wider">{ tableData.GrandTotal }</th>
+					</tr>
+				</tfoot>
+			</table>
+		</div>
+	</div>
+
+	<div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm flex-1 flex flex-col min-h-[280px] relative z-20">
+		<div class="flex justify-between items-center mb-3">
+			<h3 class="text-sm font-bold text-gray-800 uppercase tracking-wide">User Cost Trend</h3>
+		</div>
+		<div class="relative w-full flex-1 min-h-0"><canvas id="usCostChart"></canvas></div>
+
+		@templ.JSONScript("us-chart-data", chartDataJSON)
+
+		<script>
+			function toggleRow(id) {
+				const el = document.getElementById(id);
+				if (el) {
+					if (el.classList.contains("hidden")) {
+						el.classList.remove("hidden");
+						el.previousElementSibling.setAttribute("data-open", "true");
+					} else {
+						el.classList.add("hidden");
+						el.previousElementSibling.removeAttribute("data-open");
+					}
+				}
+			}
+
+			(function initUSChart() {
+				if (window.usCostChartInstance) { window.usCostChartInstance.destroy(); }
+				const canvas = document.getElementById('usCostChart');
+				if (!canvas) return;
+
+				let rawDataStr = document.getElementById('us-chart-data').textContent;
+				let rawData = JSON.parse(rawDataStr);
+				if (typeof rawData === 'string') { rawData = JSON.parse(rawData); }
+
+				const datesSet = new Set();
+				const datasetsMap = {}; 
+				const totalsByDate = {}; 
+				const colorPalette = ['#2563EB', '#3B82F6', '#60A5FA', '#93C5FD', '#10B981', '#34D399'];
+				let colorIdx = 0;
+
+				rawData.forEach(d => {
+					datesSet.add(d.date);
+					let labelName = d.service; 
+					if (!datasetsMap[labelName]) {
+						datasetsMap[labelName] = {
+							type: 'bar', label: labelName, data: {},
+							backgroundColor: colorPalette[colorIdx % colorPalette.length],
+							borderWidth: 0, order: 2 
+						};
+						colorIdx++;
+					}
+					datasetsMap[labelName].data[d.date] = (datasetsMap[labelName].data[d.date] || 0) + d.cost;
+					totalsByDate[d.date] = (totalsByDate[d.date] || 0) + d.cost;
+				});
+
+				const sortedDates = Array.from(datesSet).sort();
+				const finalDatasets = Object.values(datasetsMap).map(ds => {
+					return { ...ds, data: sortedDates.map(date => ds.data[date] || 0) };
+				});
+
+				finalDatasets.push({
+					type: 'line', label: 'Total Cost Trend',
+					data: sortedDates.map(date => totalsByDate[date] || 0),
+					borderColor: '#1F2937', borderWidth: 2, borderDash: [5, 5], fill: false, pointRadius: 2, order: 1 
+				});
+
+				const ctx = canvas.getContext('2d');
+				window.usCostChartInstance = new Chart(ctx, {
+					type: 'bar',
+					data: { labels: sortedDates, datasets: finalDatasets },
+					options: {
+						responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
+						plugins: { legend: { position: 'right', labels: { usePointStyle: true, boxWidth: 8, font: {size: 10} } } },
+						scales: { x: { stacked: true, grid: { display: false } }, y: { stacked: true, beginAtZero: true, grid: { color: '#f3f4f6', drawBorder: false }, ticks: { callback: function(value) { return '$' + value; } } } }
+					}
+				});
+			})();
+		</script>
+	</div>
+}
+
+templ usersDetailsRow(data UserDetailsData) {
+	<div class="overflow-x-auto w-full rounded-lg border border-gray-200 shadow-sm bg-white p-2 my-1 animate-fade-in">
+		<table class="min-w-full divide-y divide-gray-100">
+			<thead class="bg-gray-50/80">
+				<tr>
+					<th scope="col" class="px-3 py-1.5 text-left text-[10px] font-bold text-gray-500 uppercase tracking-wider">Type of Costing</th>
+					<th scope="col" class="px-3 py-1.5 text-right text-[10px] font-bold text-gray-500 uppercase tracking-wider border-r border-gray-100 pr-3">Size Billed</th>
+					for _, month := range data.MonthHeaders {
+						<th scope="col" class="px-3 py-1.5 text-right text-[10px] font-bold text-gray-400 uppercase tracking-wider">{ month }</th>
+					}
+					<th scope="col" class="px-3 py-1.5 text-right text-[10px] font-bold text-gray-700 uppercase tracking-wider bg-gray-100/50">Total</th>
+				</tr>
+			</thead>
+			<tbody class="divide-y divide-gray-200">
+				for _, item := range data.Details {
+					<tr class="hover:bg-gray-50/50 transition-colors">
+						<td class="px-3 py-1.5 whitespace-nowrap text-xs font-bold text-gray-800">{ item.QueryType }</td>
+						<td class="px-3 py-1.5 whitespace-nowrap text-xs text-gray-500 font-medium text-right border-r border-gray-100 pr-3">{ item.TotalSize }</td>
+						
+						for _, mData := range item.Months {
+							<td class="px-3 py-1.5 whitespace-nowrap text-right">
+								<div class="text-xs font-bold text-gray-800 leading-none">{ mData.Cost }</div>
+								<div class={ "text-[9px] font-bold mt-0.5 leading-none", templ.KV("text-red-500", strings.Contains(mData.Delta, "▲")), templ.KV("text-green-500", strings.Contains(mData.Delta, "▼")), templ.KV("text-gray-400", mData.Delta == "0%" || mData.Delta == "-") }>{ mData.Delta }</div>
+							</td>
+						}
+						
+						<td class="px-3 py-1.5 whitespace-nowrap text-xs font-black text-gray-900 text-right bg-gray-50/40">{ item.TotalCost }</td>
+					</tr>
+				}
+				if len(data.Details) == 0 {
+					<tr><td colspan="10" class="px-3 py-4 text-center text-xs text-gray-400 italic">No detailed usage found in this window.</td></tr>
+				}
+			</tbody>
+		</table>
+	</div>
+}

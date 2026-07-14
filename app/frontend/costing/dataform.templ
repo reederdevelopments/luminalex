@@ -1,0 +1,313 @@
+package costing
+
+import (
+	"strings"
+	"fmt"
+)
+
+templ dataformTab(data CostingDashboardData) {
+	<div class="flex flex-col gap-4 animate-fade-in h-full">
+		<script>
+			if (window.parent && window.parent.document) {
+				const menuBtn = window.parent.document.querySelector('#ujuzi-menu-btn div');
+				if (menuBtn) { menuBtn.innerText = 'MENU - COSTING DATAFORM'; }
+			}
+		</script>
+
+		<div class="bg-white p-4 rounded-xl shadow-sm border border-gray-200 flex flex-col gap-4 shrink-0 relative z-40">
+			<div class="flex flex-wrap items-center gap-2 border-b border-gray-100 pb-2">
+				<span class="text-xs font-bold text-gray-400 uppercase tracking-widest mr-2">Quick Select:</span>
+				<button type="button" onclick="setDFDateRange('today')" class="px-3 py-1 text-xs font-semibold text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-full transition-colors">Today</button>
+				<button type="button" onclick="setDFDateRange('yesterday')" class="px-3 py-1 text-xs font-semibold text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-full transition-colors">Yesterday</button>
+				<button type="button" onclick="setDFDateRange('current_week')" class="px-3 py-1 text-xs font-semibold text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-full transition-colors">Current Week</button>
+				<button type="button" onclick="setDFDateRange('last_week')" class="px-3 py-1 text-xs font-semibold text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-full transition-colors">Last Week</button>
+				<button type="button" onclick="setDFDateRange('current_month')" class="px-3 py-1 text-xs font-semibold text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-full transition-colors">Current Month</button>
+				<button type="button" onclick="setDFDateRange('last_month')" class="px-3 py-1 text-xs font-semibold text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-full transition-colors">Last Month</button>
+				<button type="button" onclick="setDFDateRange('last_30')" class="px-3 py-1 text-xs font-semibold text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-full transition-colors">Last 30 Days</button>
+				<button type="button" onclick="setDFDateRange('last_90')" class="px-3 py-1 text-xs font-semibold text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-full transition-colors">Last 90 Days</button>
+				<button type="button" onclick="setDFDateRange('ytd')" class="px-3 py-1 text-xs font-semibold text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-full transition-colors">Year to Date</button>
+			</div>
+
+			<form 
+				id="df-costing-form"
+				hx-get="/costing/dataform/metrics" 
+				hx-target="#df-metrics"
+				hx-trigger="submit, load"
+				hx-indicator=".htmx-indicator"
+				class="flex flex-wrap gap-4 items-center w-full"
+			>
+				<div class="flex items-center gap-2 pr-4">
+					<input type="date" id="df_start_date" name="start_date" value={ data.StartDate } class="text-sm rounded-md border-gray-300 focus:ring-green-x-light focus:border-green-x-light py-1.5" />
+					<span class="text-xs font-semibold text-gray-400">TO</span>
+					<input type="date" id="df_end_date" name="end_date" value={ data.EndDate } class="text-sm rounded-md border-gray-300 focus:ring-green-x-light focus:border-green-x-light py-1.5" />
+				</div>
+
+				<select name="query_label" class="text-sm rounded-md border-gray-300 focus:ring-green-x-light focus:border-green-x-light py-1.5 max-w-[200px]">
+					<option value="" selected>All Query Labels</option>
+					for _, lbl := range data.Labels {
+						<option value={ lbl }>{ lbl }</option>
+					}
+				</select>
+
+				<select name="grouping" class="text-sm rounded-md border-gray-300 focus:ring-green-x-light focus:border-green-x-light py-1.5 ml-4 border-l border-gray-200 pl-4">
+					<option value="daily" selected>Daily Graph View</option>
+					<option value="monthly">Monthly Graph View</option>
+					<option value="yearly">Yearly Graph View</option>
+				</select>
+				
+				<button type="submit" class="ml-auto bg-green-x-dark text-white px-5 py-2 rounded-md text-xs font-bold uppercase tracking-wider hover:bg-green-x-light transition-all shadow-sm">
+					Apply Filters
+				</button>
+			</form>
+		</div>
+
+		<div id="df-metrics" class="flex flex-col gap-6 h-full relative z-30"></div>
+
+		<script>
+			function setDFDateRange(type) {
+				const startInput = document.getElementById('df_start_date');
+				const endInput = document.getElementById('df_end_date');
+				const today = new Date();
+				let start = new Date(today);
+				let end = new Date(today);
+
+				switch(type) {
+					case 'today':
+						// explicitly target today bounds
+						start = new Date(today);
+						end = new Date(today);
+						break;
+					case 'yesterday':
+						start.setDate(today.getDate() - 1);
+						end.setDate(today.getDate() - 1);
+						break;
+					case 'current_week':
+						const day1 = start.getDay();
+						const diff1 = start.getDate() - day1 + (day1 === 0 ? -6 : 1);
+						start.setDate(diff1);
+						break;
+					case 'last_week':
+						const day2 = start.getDay();
+						const diff2 = start.getDate() - day2 + (day2 === 0 ? -6 : 1) - 7;
+						start.setDate(diff2);
+						end = new Date(start);
+						end.setDate(start.getDate() + 6);
+						break;
+					case 'current_month':
+						start = new Date(today.getFullYear(), today.getMonth(), 1); 
+						break;
+					case 'last_month':
+						start = new Date(today.getFullYear(), today.getMonth() - 1, 1); 
+						end = new Date(today.getFullYear(), today.getMonth(), 0); 
+						break;
+					case 'last_30':
+						start.setDate(today.getDate() - 30); 
+						break;
+					case 'last_90':
+						start.setDate(today.getDate() - 90); 
+						break;
+					case 'ytd':
+						start = new Date(today.getFullYear(), 0, 1); 
+						break;
+				}
+
+				const fmt = d => {
+					const offset = d.getTimezoneOffset();
+					return new Date(d.getTime() - (offset*60*1000)).toISOString().split('T')[0];
+				};
+
+				if (start && end) {
+					startInput.value = fmt(start);
+					endInput.value = fmt(end);
+					document.getElementById('df-costing-form').dispatchEvent(new Event('submit', { cancelable: true }));
+				}
+			}
+		</script>
+	</div>
+}
+
+templ dataformMetrics(tableData DFTableData, chartDataJSON string, start string, end string) {
+	<div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden shrink-0 relative z-30">
+		<div class="px-4 py-3 border-b border-gray-200 bg-gray-50 flex justify-between items-center">
+			<h2 class="text-sm font-bold text-gray-800 uppercase tracking-wide">Dataform Executions <span class="text-gray-400 font-normal lowercase ml-2">(df-fs-insights)</span></h2>
+		</div>
+		<div class="overflow-x-visible w-full">
+			<table class="min-w-full divide-y divide-gray-200">
+				<thead class="bg-gray-50">
+					<tr>
+						<th scope="col" class="px-6 py-2 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Job Label</th>
+						<th scope="col" class="px-6 py-2 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">Total Runs</th>
+						<th scope="col" class="px-6 py-2 text-right text-xs font-bold text-gray-800 uppercase tracking-wider">Total Cost</th>
+					</tr>
+				</thead>
+				<tbody class="bg-white divide-y divide-gray-200">
+					for _, job := range tableData.Jobs {
+						<tr 
+							class="hover:bg-green-50 transition-colors cursor-pointer group"
+							hx-get={ "/costing/dataform/details?job_label=" + job.JobLabel + "&start_date=" + start + "&end_date=" + end } 
+							hx-target={ "#df-details-box-" + job.JobLabel }
+							hx-swap="innerHTML"
+							data-row-target={ "df-row-" + job.JobLabel }
+							onclick="toggleRow(this.getAttribute('data-row-target'))"
+						>
+							<td class="px-6 py-2 whitespace-nowrap text-sm font-bold text-green-x-dark group-hover:text-green-x-light flex items-center gap-2">
+								<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-3 h-3 text-gray-400 transition-transform group-data-[open=true]:rotate-90">
+									<path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
+								</svg>
+								{ job.JobLabel }
+							</td>
+							<td class="px-6 py-2 whitespace-nowrap text-right text-sm text-gray-600 font-medium">{ fmt.Sprintf("%d", job.TotalRuns) }</td>
+							<td class="px-6 py-2 whitespace-nowrap text-right text-sm font-black text-gray-900 bg-gray-50/30">{ job.TotalCost }</td>
+						</tr>
+						
+						<tr id={ "df-row-" + job.JobLabel } class="hidden bg-gray-50/40">
+							<td colspan="3" class="px-6 py-3 border-b border-gray-200">
+								<div id={ "df-details-box-" + job.JobLabel } class="w-full">
+									<div class="flex items-center justify-center py-4 gap-2 text-xs text-gray-400 font-medium animate-pulse">
+										<svg class="animate-spin h-4 w-4 text-green-x-dark" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+											<circle class="opacity-25" cx12 cy12 r10 stroke="currentColor" stroke-width="4"></circle>
+											<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+										</svg>
+										Discovering resource lineage from information schema...
+									</div>
+								</div>
+							</td>
+						</tr>
+					}
+					if len(tableData.Jobs) == 0 {
+						<tr>
+							<td colspan="3" class="px-6 py-6 text-center text-sm text-gray-500">No Dataform runs found for this date range.</td>
+						</tr>
+					}
+				</tbody>
+				<tfoot class="bg-green-x-dark text-white">
+					<tr>
+						<th scope="col" class="px-6 py-2 text-left text-sm font-black uppercase tracking-wider">Grand Total</th>
+						<th scope="col" class="px-6 py-2 text-right text-sm font-bold tracking-wider">{ fmt.Sprintf("%d", tableData.TotalRuns) }</th>
+						<th scope="col" class="px-6 py-2 text-right text-sm font-black uppercase tracking-wider">{ tableData.GrandTotal }</th>
+					</tr>
+				</tfoot>
+			</table>
+		</div>
+	</div>
+
+	<div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm flex-1 flex flex-col min-h-[280px] relative z-20">
+		<div class="flex justify-between items-center mb-3">
+			<h3 class="text-sm font-bold text-gray-800 uppercase tracking-wide">Dataform Cost Trend</h3>
+		</div>
+		<div class="relative w-full flex-1 min-h-0"><canvas id="dfCostChart"></canvas></div>
+
+		@templ.JSONScript("df-chart-data", chartDataJSON)
+
+		<script>
+			function toggleRow(id) {
+				const el = document.getElementById(id);
+				if (el) {
+					if (el.classList.contains("hidden")) {
+						el.classList.remove("hidden");
+						el.previousElementSibling.setAttribute("data-open", "true");
+					} else {
+						el.classList.add("hidden");
+						el.previousElementSibling.removeAttribute("data-open");
+					}
+				}
+			}
+
+			(function initDFChart() {
+				if (window.dfCostChartInstance) { window.dfCostChartInstance.destroy(); }
+				const canvas = document.getElementById('dfCostChart');
+				if (!canvas) return;
+
+				let rawDataStr = document.getElementById('df-chart-data').textContent;
+				let rawData = JSON.parse(rawDataStr);
+				if (typeof rawData === 'string') { rawData = JSON.parse(rawData); }
+
+				const datesSet = new Set();
+				const datasetsMap = {}; 
+				const totalsByDate = {}; 
+				const colorPalette = ['#286256', '#4AB8A1', '#A52022', '#F59E0B', '#3B82F6', '#8B5CF6'];
+				let colorIdx = 0;
+
+				rawData.forEach(d => {
+					datesSet.add(d.date);
+					let labelName = d.service; 
+					if (!datasetsMap[labelName]) {
+						datasetsMap[labelName] = {
+							type: 'bar', label: labelName, data: {},
+							backgroundColor: colorPalette[colorIdx % colorPalette.length],
+							borderWidth: 0, order: 2 
+						};
+						colorIdx++;
+					}
+					datasetsMap[labelName].data[d.date] = (datasetsMap[labelName].data[d.date] || 0) + d.cost;
+					totalsByDate[d.date] = (totalsByDate[d.date] || 0) + d.cost;
+				});
+
+				const sortedDates = Array.from(datesSet).sort();
+				const finalDatasets = Object.values(datasetsMap).map(ds => {
+					return { ...ds, data: sortedDates.map(date => ds.data[date] || 0) };
+				});
+
+				finalDatasets.push({
+					type: 'line', label: 'Total Cost Trend',
+					data: sortedDates.map(date => totalsByDate[date] || 0),
+					borderColor: '#374151', borderWidth: 2, borderDash: [5, 5], fill: false, pointRadius: 2, pointBackgroundColor: '#374151', order: 1 
+				});
+
+				const ctx = canvas.getContext('2d');
+				window.dfCostChartInstance = new Chart(ctx, {
+					type: 'bar',
+					data: { labels: sortedDates, datasets: finalDatasets },
+					options: {
+						responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
+						plugins: { legend: { position: 'right', labels: { usePointStyle: true, boxWidth: 8, font: {size: 10} } } },
+						scales: { x: { stacked: true, grid: { display: false } }, y: { stacked: true, beginAtZero: true, grid: { color: '#f3f4f6', drawBorder: false }, ticks: { callback: function(value) { return '$' + value; } } } }
+					}
+				});
+			})();
+		</script>
+	</div>
+}
+
+templ dataformDetailsRow(data DFDetailsData) {
+	<div class="overflow-x-auto w-full rounded-lg border border-gray-200 shadow-sm bg-white p-2 my-1 animate-fade-in">
+		<table class="min-w-full divide-y divide-gray-100">
+			<thead class="bg-gray-100/80">
+				<tr>
+					<th scope="col" class="px-3 py-1.5 text-left text-[10px] font-bold text-gray-500 uppercase tracking-wider">Database</th>
+					<th scope="col" class="px-3 py-1.5 text-left text-[10px] font-bold text-gray-500 uppercase tracking-wider">Schema</th>
+					<th scope="col" class="px-3 py-1.5 text-left text-[10px] font-bold text-gray-400 uppercase tracking-wider">Table Name</th>
+					<th scope="col" class="px-3 py-1.5 text-right text-[10px] font-bold text-gray-500 uppercase tracking-wider border-r border-gray-100 pr-3">Runs</th>
+					for _, month := range data.MonthHeaders {
+						<th scope="col" class="px-3 py-1.5 text-right text-[10px] font-bold text-gray-400 uppercase tracking-wider">{ month }</th>
+					}
+					<th scope="col" class="px-3 py-1.5 text-right text-[10px] font-bold text-gray-700 uppercase tracking-wider bg-gray-100/50">Total</th>
+				</tr>
+			</thead>
+			<tbody class="divide-y divide-gray-200">
+				for _, item := range data.Details {
+					<tr class="hover:bg-gray-50/50 transition-colors">
+						<td class="px-3 py-1.5 whitespace-nowrap text-xs font-medium text-gray-500">{ item.Database }</td>
+						<td class="px-3 py-1.5 whitespace-nowrap text-xs text-purple-600 font-semibold">{ item.Schema }</td>
+						<td class="px-3 py-1.5 whitespace-nowrap text-xs font-bold text-gray-900">{ item.Name }</td>
+						<td class="px-3 py-1.5 whitespace-nowrap text-xs text-gray-600 font-black text-right border-r border-gray-100 pr-3">{ fmt.Sprintf("%d", item.TotalRuns) }</td>
+						
+						for _, mData := range item.Months {
+							<td class="px-3 py-1.5 whitespace-nowrap text-right">
+								<div class="text-xs font-bold text-gray-800 leading-none">{ mData.Cost }</div>
+								<div class={ "text-[9px] font-bold mt-0.5 leading-none", templ.KV("text-red-500", strings.Contains(mData.Delta, "▲")), templ.KV("text-green-500", strings.Contains(mData.Delta, "▼")), templ.KV("text-gray-400", mData.Delta == "0%" || mData.Delta == "-") }>{ mData.Delta }</div>
+							</td>
+						}
+						
+						<td class="px-3 py-1.5 whitespace-nowrap text-xs font-black text-gray-900 text-right bg-gray-50/40">{ item.TotalCost }</td>
+					</tr>
+				}
+				if len(data.Details) == 0 {
+					<tr>
+						<td colspan="10" class="px-3 py-4 text-center text-xs text-gray-400 italic">No associated tables detected in this window.</td>
+					</tr>
+				}
+			</tbody>
+		</table>
+	</div>
+}

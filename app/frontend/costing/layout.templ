@@ -7,22 +7,34 @@ templ costingPage() {
 		<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 		<div class="h-screen w-full bg-gray-50 flex flex-col p-4 md:p-8 overflow-hidden">
-			<div class="flex space-x-2 border-b border-gray-200 mb-6 shrink-0 mt-4">
-				<button class="px-5 py-2.5 text-sm font-semibold text-gray-500 hover:text-gray-900 hover:border-gray-300 border-b-2 border-transparent transition-colors">Overall</button>
-				<button 
-					hx-get="/costing/datastream" 
-					hx-target="#costing-content"
-					class="px-5 py-2.5 text-sm font-bold text-green-x-dark border-b-2 border-green-x-dark transition-colors">
+			<div class="flex space-x-2 border-b border-gray-200 mb-6 shrink-0 mt-4 overflow-x-auto hide-scrollbar">
+				<button hx-get="/costing/overall" hx-target="#costing-content" class="px-5 py-2.5 text-sm font-bold text-gray-500 hover:text-gray-900 focus:text-green-x-dark focus:border-green-x-dark hover:border-gray-300 border-b-2 border-transparent transition-colors">
+					Overall
+				</button>
+				
+				<button hx-get="/costing/datastream" hx-target="#costing-content" class="px-5 py-2.5 text-sm font-bold text-gray-500 hover:text-gray-900 focus:text-green-x-dark focus:border-green-x-dark hover:border-gray-300 border-b-2 border-transparent transition-colors">
 					Datastream
 				</button>
-				<button class="px-5 py-2.5 text-sm font-semibold text-gray-500 hover:text-gray-900 hover:border-gray-300 border-b-2 border-transparent transition-colors">3rd Party</button>
-				<button class="px-5 py-2.5 text-sm font-semibold text-gray-500 hover:text-gray-900 hover:border-gray-300 border-b-2 border-transparent transition-colors">Dataform</button>
-				<button class="px-5 py-2.5 text-sm font-semibold text-gray-500 hover:text-gray-900 hover:border-gray-300 border-b-2 border-transparent transition-colors">Users</button>
-				<button class="px-5 py-2.5 text-sm font-semibold text-gray-500 hover:text-gray-900 hover:border-gray-300 border-b-2 border-transparent transition-colors">DataStudio</button>
+				
+				<button hx-get="/costing/thirdparty" hx-target="#costing-content" class="px-5 py-2.5 text-sm font-bold text-gray-500 hover:text-gray-900 focus:text-green-x-dark focus:border-green-x-dark hover:border-gray-300 border-b-2 border-transparent transition-colors">
+					3rd Party
+				</button>
+				
+				<button hx-get="/costing/dataform" hx-target="#costing-content" class="px-5 py-2.5 text-sm font-bold text-gray-500 hover:text-gray-900 focus:text-green-x-dark focus:border-green-x-dark hover:border-gray-300 border-b-2 border-transparent transition-colors">
+					Dataform
+				</button>
+				
+				<button hx-get="/costing/users" hx-target="#costing-content" class="px-5 py-2.5 text-sm font-bold text-gray-500 hover:text-gray-900 focus:text-green-x-dark focus:border-green-x-dark hover:border-gray-300 border-b-2 border-transparent transition-colors">
+					Users
+				</button>
+				
+				<button hx-get="/costing/datastudio" hx-target="#costing-content" class="px-5 py-2.5 text-sm font-bold text-gray-500 hover:text-gray-900 focus:text-green-x-dark focus:border-green-x-dark hover:border-gray-300 border-b-2 border-transparent transition-colors">
+                    DataStudio
+                </button>
 			</div>
 
 			<div id="costing-content" class="flex-1 overflow-y-auto hide-scrollbar pb-10">
-				<div hx-get="/costing/datastream" hx-trigger="load">
+				<div hx-get="/costing/overall" hx-trigger="load">
 					<div class="animate-pulse flex space-x-4">
 						<div class="flex-1 space-y-6 py-1">
 							<div class="h-2 bg-gray-200 rounded w-1/4"></div>

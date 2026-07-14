@@ -61,6 +61,8 @@ type ChartPoint struct {
 type CostingDashboardData struct {
 	StartDate string
 	EndDate   string
+	Labels    []string          // Used to populate dynamic dropdowns
+	LabelMap  map[string]string // Used for injecting human readable mappings
 }
 
 func formatSizeGB(gbAmount float64) string {
