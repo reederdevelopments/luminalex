@@ -22,7 +22,7 @@ COPY . .
 # --- Run Build Steps ---
 
 # 1. Install and run templ
-RUN go install github.com/a-h/templ/cmd/templ@v0.2.747
+RUN go install github.com/a-h/templ/cmd/templ@v0.3.1020
 RUN /go/bin/templ generate
 
 # 2. Install and run Tailwind CSS
