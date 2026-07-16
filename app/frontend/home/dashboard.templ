@@ -1,7 +1,14 @@
 package base
 
-import "fmt"
-import "controlroom/app/backend/ui/layout"
+import (
+	"fmt"
+	"controlroom/app/backend/ui/layout"
+)
+
+// Helper function to safely render dynamic heights
+func getBarHeight(height int) templ.SafeCSS {
+	return templ.SafeCSS(fmt.Sprintf("height: %d%%;", height))
+}
 
 templ dashboardView(data DashboardData) {
 	@layout.Html("Dashboard") {
@@ -67,32 +74,32 @@ templ dashboardView(data DashboardData) {
 						
 						<div class="w-full h-16 relative flex items-end justify-between px-2">
 							<div class="flex items-end gap-1 h-full">
-								<div class="w-2.5 bg-[#06b6d4] rounded-t-sm transition-all" style={ fmt.Sprintf("height: %d%%;", data.KBCreatedHeights[0]) }></div>
-								<div class="w-2.5 bg-[#ec4899] rounded-t-sm transition-all" style={ fmt.Sprintf("height: %d%%;", data.KBUpdatedHeights[0]) }></div>
+								<div class="w-2.5 bg-[#06b6d4] rounded-t-sm transition-all" style={ getBarHeight(data.KBCreatedHeights[0]) }></div>
+								<div class="w-2.5 bg-[#ec4899] rounded-t-sm transition-all" style={ getBarHeight(data.KBUpdatedHeights[0]) }></div>
 							</div>
 							<div class="flex items-end gap-1 h-full">
-								<div class="w-2.5 bg-[#eab308] rounded-t-sm transition-all" style={ fmt.Sprintf("height: %d%%;", data.KBCreatedHeights[1]) }></div>
-								<div class="w-2.5 bg-[#8b5cf6] rounded-t-sm transition-all" style={ fmt.Sprintf("height: %d%%;", data.KBUpdatedHeights[1]) }></div>
+								<div class="w-2.5 bg-[#eab308] rounded-t-sm transition-all" style={ getBarHeight(data.KBCreatedHeights[1]) }></div>
+								<div class="w-2.5 bg-[#8b5cf6] rounded-t-sm transition-all" style={ getBarHeight(data.KBUpdatedHeights[1]) }></div>
 							</div>
 							<div class="flex items-end gap-1 h-full">
-								<div class="w-2.5 bg-[#4ab8a1] rounded-t-sm transition-all" style={ fmt.Sprintf("height: %d%%;", data.KBCreatedHeights[2]) }></div>
-								<div class="w-2.5 bg-[#f59e0b] rounded-t-sm transition-all" style={ fmt.Sprintf("height: %d%%;", data.KBUpdatedHeights[2]) }></div>
+								<div class="w-2.5 bg-[#4ab8a1] rounded-t-sm transition-all" style={ getBarHeight(data.KBCreatedHeights[2]) }></div>
+								<div class="w-2.5 bg-[#f59e0b] rounded-t-sm transition-all" style={ getBarHeight(data.KBUpdatedHeights[2]) }></div>
 							</div>
 							<div class="flex items-end gap-1 h-full">
-								<div class="w-2.5 bg-[#3b82f6] rounded-t-sm transition-all" style={ fmt.Sprintf("height: %d%%;", data.KBCreatedHeights[3]) }></div>
-								<div class="w-2.5 bg-[#ec4899] rounded-t-sm transition-all" style={ fmt.Sprintf("height: %d%%;", data.KBUpdatedHeights[3]) }></div>
+								<div class="w-2.5 bg-[#3b82f6] rounded-t-sm transition-all" style={ getBarHeight(data.KBCreatedHeights[3]) }></div>
+								<div class="w-2.5 bg-[#ec4899] rounded-t-sm transition-all" style={ getBarHeight(data.KBUpdatedHeights[3]) }></div>
 							</div>
 							<div class="flex items-end gap-1 h-full">
-								<div class="w-2.5 bg-[#eab308] rounded-t-sm transition-all" style={ fmt.Sprintf("height: %d%%;", data.KBCreatedHeights[4]) }></div>
-								<div class="w-2.5 bg-[#06b6d4] rounded-t-sm transition-all" style={ fmt.Sprintf("height: %d%%;", data.KBUpdatedHeights[4]) }></div>
+								<div class="w-2.5 bg-[#eab308] rounded-t-sm transition-all" style={ getBarHeight(data.KBCreatedHeights[4]) }></div>
+								<div class="w-2.5 bg-[#06b6d4] rounded-t-sm transition-all" style={ getBarHeight(data.KBUpdatedHeights[4]) }></div>
 							</div>
 							<div class="flex items-end gap-1 h-full">
-								<div class="w-2.5 bg-[#8b5cf6] rounded-t-sm transition-all" style={ fmt.Sprintf("height: %d%%;", data.KBCreatedHeights[5]) }></div>
-								<div class="w-2.5 bg-[#4ab8a1] rounded-t-sm transition-all" style={ fmt.Sprintf("height: %d%%;", data.KBUpdatedHeights[5]) }></div>
+								<div class="w-2.5 bg-[#8b5cf6] rounded-t-sm transition-all" style={ getBarHeight(data.KBCreatedHeights[5]) }></div>
+								<div class="w-2.5 bg-[#4ab8a1] rounded-t-sm transition-all" style={ getBarHeight(data.KBUpdatedHeights[5]) }></div>
 							</div>
 							<div class="flex items-end gap-1 h-full">
-								<div class="w-2.5 bg-[#f59e0b] rounded-t-sm transition-all" style={ fmt.Sprintf("height: %d%%;", data.KBCreatedHeights[6]) }></div>
-								<div class="w-2.5 bg-[#3b82f6] rounded-t-sm transition-all" style={ fmt.Sprintf("height: %d%%;", data.KBUpdatedHeights[6]) }></div>
+								<div class="w-2.5 bg-[#f59e0b] rounded-t-sm transition-all" style={ getBarHeight(data.KBCreatedHeights[6]) }></div>
+								<div class="w-2.5 bg-[#3b82f6] rounded-t-sm transition-all" style={ getBarHeight(data.KBUpdatedHeights[6]) }></div>
 							</div>
 						</div>
 
