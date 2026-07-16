@@ -8,6 +8,7 @@ import (
 	"controlroom/app/backend/webx"
 	costing "controlroom/app/frontend/costing"
 	base "controlroom/app/frontend/home"
+	kb "controlroom/app/frontend/kb"
 	"embed"
 	"errors"
 	"fmt"
@@ -139,6 +140,7 @@ func run(l *log.Logger) error {
 	// We now pass coreDBs down the chain.
 	base.InitModule(l, app, sessionStore)
 	costing.InitModule(l, app, sessionStore)
+	kb.InitModule(l, app, sessionStore)
 
 	// Start Server
 	host := fmt.Sprintf("0.0.0.0:%d", cfg.Port)
