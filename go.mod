@@ -3,34 +3,26 @@ module controlroom
 go 1.25.8
 
 require (
-	cloud.google.com/go v0.123.0
 	cloud.google.com/go/bigquery v1.77.0
-	cloud.google.com/go/datastore v1.24.0
 	cloud.google.com/go/firestore v1.21.0
-	cloud.google.com/go/workflows v1.19.0
 	github.com/Rockup-Consulting/std v1.1.1
 	github.com/a-h/templ v0.3.1020
 	github.com/ardanlabs/conf/v3 v3.1.7
-	github.com/dustin/go-humanize v1.0.1
 	github.com/go-chi/chi/v5 v5.2.2
-	github.com/go-sql-driver/mysql v1.10.0
-	github.com/go-viper/mapstructure/v2 v2.5.0
-	github.com/google/uuid v1.6.0
 	github.com/gorilla/securecookie v1.1.1
 	github.com/gorilla/sessions v1.1.1
 	github.com/markbates/goth v1.82.0
-	github.com/yuin/goldmark v1.4.13
 	google.golang.org/api v0.287.0
 	gopkg.in/yaml.v2 v2.4.0
 )
 
 require (
+	cloud.google.com/go v0.123.0 // indirect
 	cloud.google.com/go/auth v0.20.0 // indirect
 	cloud.google.com/go/auth/oauth2adapt v0.2.8 // indirect
 	cloud.google.com/go/compute/metadata v0.9.0 // indirect
 	cloud.google.com/go/iam v1.7.0 // indirect
 	cloud.google.com/go/longrunning v1.0.0 // indirect
-	filippo.io/edwards25519 v1.2.0 // indirect
 	github.com/apache/arrow/go/v15 v15.0.2 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
@@ -40,6 +32,7 @@ require (
 	github.com/goccy/go-json v0.10.2 // indirect
 	github.com/google/flatbuffers v23.5.26+incompatible // indirect
 	github.com/google/s2a-go v0.1.9 // indirect
+	github.com/google/uuid v1.6.0 // indirect
 	github.com/googleapis/enterprise-certificate-proxy v0.3.17 // indirect
 	github.com/googleapis/gax-go/v2 v2.22.0 // indirect
 	github.com/gorilla/context v1.1.1 // indirect
