@@ -166,7 +166,7 @@ func (m module) fetchGCPBilling(ctx context.Context, startStr, endStr, projectFi
 	}
 	defer client.Close()
 
-	billingTable := "df-ps-staging.GOOGLE_COSTING.gcp_billing_export_resource_v1_01FF43_BAACE5_55390D"
+	billingTable := "df-ps-staging.EXT_GCP_BILLING.gcp_billing_export_resource_v1_01FF43_BAACE5_55390D"
 
 	projectFilterSQL := "AND project.id IN ('df-ps-south-africa', 'df-ps-zambia', 'df-ps-kenya', 'df-ps-uganda', 'df-ps-tanzania')"
 	if projectFilter != "" {
@@ -311,7 +311,7 @@ func (m module) fetchProjectDetails(ctx context.Context, startStr, endStr, proje
 	}
 	defer client.Close()
 
-	billingTable := "df-ps-staging.GOOGLE_COSTING.gcp_billing_export_resource_v1_01FF43_BAACE5_55390D"
+	billingTable := "df-ps-staging.EXT_GCP_BILLING.gcp_billing_export_resource_v1_01FF43_BAACE5_55390D"
 
 	start, _ := time.Parse("2006-01-02", startStr)
 	end, _ := time.Parse("2006-01-02", endStr)

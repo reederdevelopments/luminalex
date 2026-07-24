@@ -5,6 +5,8 @@ go 1.25.8
 require (
 	cloud.google.com/go/bigquery v1.77.0
 	cloud.google.com/go/firestore v1.21.0
+	cloud.google.com/go/logging v1.13.2
+	cloud.google.com/go/monitoring v1.24.3
 	github.com/Rockup-Consulting/std v1.1.1
 	github.com/a-h/templ v0.3.1020
 	github.com/ardanlabs/conf/v3 v3.1.7

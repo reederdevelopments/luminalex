@@ -9,6 +9,7 @@ import (
 	costing "controlroom/app/frontend/costing"
 	base "controlroom/app/frontend/home"
 	kb "controlroom/app/frontend/kb"
+	"controlroom/app/frontend/monitoring"
 	"embed"
 	"errors"
 	"fmt"
@@ -38,7 +39,6 @@ func main() {
 }
 
 func run(l *log.Logger) error {
-	// --- Configuration ---
 	cfg := struct {
 		Port            int    `conf:"default:3080"`
 		Dev             bool   `conf:"flag:dev"`
@@ -94,14 +94,12 @@ func run(l *log.Logger) error {
 
 	ctx := context.Background()
 
-	// --- Services ---
 	fsDb, err := auth.NewFirestoreClient(ctx, cfg.GoogleProjectID, cfg.FsDbID)
 	if err != nil {
 		return fmt.Errorf("failed to connect to firestore: %w", err)
 	}
 	defer fsDb.Close()
 
-	// --- Authentication ---
 	authService := auth.NewService(cfg.SessionSecret)
 	sessionStore := auth.NewFireStore(l, fsDb, authService, cfg.Dev)
 
@@ -121,10 +119,8 @@ func run(l *log.Logger) error {
 	cookieStore.Options.Secure = !cfg.Dev
 	gothic.Store = cookieStore
 
-	// --- HTTP Server ---
 	app := web.NewApp()
 
-	// --- Static Assets ---
 	staticHandler := webx.StaticHandler(assets, l, cfg.Dev)
 	app.HandleStd(
 		http.MethodGet,
@@ -136,13 +132,11 @@ func run(l *log.Logger) error {
 		mid.TryGzip,
 	)
 
-	// Initialize base module (Auth & Core routes)
-	// We now pass coreDBs down the chain.
 	base.InitModule(l, app, sessionStore)
 	costing.InitModule(l, app, sessionStore)
 	kb.InitModule(l, app, sessionStore)
+	monitoring.InitModule(l, app, sessionStore)
 
-	// Start Server
 	host := fmt.Sprintf("0.0.0.0:%d", cfg.Port)
 	server := http.Server{
 		Addr:    host,

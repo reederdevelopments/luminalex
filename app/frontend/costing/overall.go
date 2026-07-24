@@ -56,7 +56,6 @@ type OverallCachePayload struct {
 	ExpiresAt time.Time
 }
 
-// Local cache to keep overall tab lightning fast
 var ovCache sync.Map
 
 func (m module) overallTabHandler(w http.ResponseWriter, r *http.Request) error {
@@ -91,7 +90,6 @@ func (m module) overallMetricsHandler(w http.ResponseWriter, r *http.Request) er
 	return overallMetrics(tableData, string(chartJSON)).Render(ctx, w)
 }
 
-// Executes the aggregation query and returns totals + project mapped breakdown
 func executeOverallTableQuery(ctx context.Context, client *bigquery.Client, start, end string) (float64, float64, float64, float64, map[string]*ProjectSummary, error) {
 	queryStr := `
 		SELECT
@@ -103,7 +101,7 @@ func executeOverallTableQuery(ctx context.Context, client *bigquery.Client, star
 				ELSE 'Other'
 			END as category,
 			SUM(cost + IFNULL((SELECT SUM(c.amount) FROM UNNEST(credits) c), 0)) as cost
-		FROM ` + "`df-ps-staging.GOOGLE_COSTING.gcp_billing_export_resource_v1_01FF43_BAACE5_55390D`" + `
+		FROM ` + "`df-ps-staging.EXT_GCP_BILLING.gcp_billing_export_resource_v1_01FF43_BAACE5_55390D`" + `
 		WHERE DATE(usage_start_time) >= DATE(@start)
 		  AND DATE(usage_start_time) <= DATE(@end)
 		GROUP BY project_id, category
@@ -138,7 +136,7 @@ func executeOverallTableQuery(ctx context.Context, client *bigquery.Client, star
 
 		cost := row.Cost.Float64
 		if cost < 0.01 && cost > -0.01 {
-			continue // Skip negligible zero-balance noise
+			continue
 		}
 
 		p, exists := projectMap[row.ProjectID]
@@ -187,7 +185,6 @@ func (m module) fetchOverallBilling(ctx context.Context, startStr, endStr, group
 	}
 	defer client.Close()
 
-	// Calculate strict Delta Window sizes based on user input
 	start, _ := time.Parse("2006-01-02", startStr)
 	end, _ := time.Parse("2006-01-02", endStr)
 	days := int(end.Sub(start).Hours() / 24)
@@ -245,7 +242,6 @@ func (m module) fetchOverallBilling(ctx context.Context, startStr, endStr, group
 		}
 	}
 
-	// Sort Projects by Highest Impact
 	sort.Slice(projects, func(i, j int) bool {
 		return projects[i].TotalNum > projects[j].TotalNum
 	})
@@ -267,7 +263,7 @@ func (m module) fetchOverallBilling(ctx context.Context, startStr, endStr, group
 				ELSE 'Other'
 			END as category,
 			SUM(cost + IFNULL((SELECT SUM(c.amount) FROM UNNEST(credits) c), 0)) as daily_cost
-		FROM `+"`df-ps-staging.GOOGLE_COSTING.gcp_billing_export_resource_v1_01FF43_BAACE5_55390D`"+`
+		FROM `+"`df-ps-staging.EXT_GCP_BILLING.gcp_billing_export_resource_v1_01FF43_BAACE5_55390D`"+`
 		WHERE DATE(usage_start_time) >= DATE(@start) 
 		  AND DATE(usage_start_time) <= DATE(@end)
 		GROUP BY usage_date, category
@@ -303,7 +299,6 @@ func (m module) fetchOverallBilling(ctx context.Context, startStr, endStr, group
 
 	tableData := OverallTableData{KPIs: kpis, Projects: projects}
 
-	// Cache for 2 hours
 	ovCache.Store(cacheKey, OverallCachePayload{
 		TableData: tableData,
 		ChartData: chartRows,

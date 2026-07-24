@@ -69,7 +69,6 @@ func (m module) thirdpartyMetricsHandler(w http.ResponseWriter, r *http.Request)
 func (m module) fetchThirdPartyBilling(ctx context.Context, startStr, endStr, grouping string) (TPTableData, []TPChartPoint, error) {
 	cacheKey := fmt.Sprintf("tp_core_%s_%s_%s", startStr, endStr, grouping)
 
-	// FIX: Leveraging the specific TPTable cache entry
 	if entry, found := m.cache.Get(cacheKey); found && len(entry.TPTable.Jobs) > 0 {
 		return entry.TPTable, entry.TPChart, nil
 	}
@@ -85,7 +84,7 @@ func (m module) fetchThirdPartyBilling(ctx context.Context, startStr, endStr, gr
 	}
 	defer client.Close()
 
-	billingTable := "df-ps-staging.GOOGLE_COSTING.gcp_billing_export_resource_v1_01FF43_BAACE5_55390D"
+	billingTable := "df-ps-staging.EXT_GCP_BILLING.gcp_billing_export_resource_v1_01FF43_BAACE5_55390D"
 
 	start, _ := time.Parse("2006-01-02", startStr)
 	end, _ := time.Parse("2006-01-02", endStr)
@@ -254,7 +253,6 @@ func (m module) fetchThirdPartyBilling(ctx context.Context, startStr, endStr, gr
 		}
 	}
 
-	// FIX: Save strictly to the TP cache
 	m.cache.SetTP(cacheKey, tableOutput, chartRows)
 
 	return tableOutput, chartRows, nil

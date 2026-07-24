@@ -14,8 +14,6 @@ import (
 	"google.golang.org/api/iterator"
 )
 
-// --- Shared Structs for Dataform Tab ---
-
 type DiscoveredTarget struct {
 	Project string
 	Schema  string
@@ -53,8 +51,6 @@ type DFDetailsData struct {
 type monthlyStats struct {
 	cost float64
 }
-
-// --- Route Handlers ---
 
 func (m module) dataformTabHandler(w http.ResponseWriter, r *http.Request) error {
 	ctx := r.Context()
@@ -104,8 +100,6 @@ func (m module) dataformProjectDetailsHandler(w http.ResponseWriter, r *http.Req
 	return dataformDetailsRow(details).Render(ctx, w)
 }
 
-// --- Data Pipelines ---
-
 func (m module) fetchDataformLabels(ctx context.Context) ([]string, error) {
 	cacheKey := "df_dropdown_labels"
 	if entry, found := m.cache.Get(cacheKey); found && len(entry.Labels) > 0 {
@@ -123,7 +117,7 @@ func (m module) fetchDataformLabels(ctx context.Context) ([]string, error) {
 	}
 	defer client.Close()
 
-	billingTable := "df-ps-staging.GOOGLE_COSTING.gcp_billing_export_resource_v1_01FF43_BAACE5_55390D"
+	billingTable := "df-ps-staging.EXT_GCP_BILLING.gcp_billing_export_resource_v1_01FF43_BAACE5_55390D"
 
 	queryStr := fmt.Sprintf(`
 		SELECT DISTINCT
@@ -177,7 +171,7 @@ func (m module) fetchDataformBilling(ctx context.Context, startStr, endStr, grou
 	}
 	defer client.Close()
 
-	billingTable := "df-ps-staging.GOOGLE_COSTING.gcp_billing_export_resource_v1_01FF43_BAACE5_55390D"
+	billingTable := "df-ps-staging.EXT_GCP_BILLING.gcp_billing_export_resource_v1_01FF43_BAACE5_55390D"
 
 	filterSQL := ""
 	if queryLabelFilter != "" {
@@ -377,7 +371,6 @@ func (m module) fetchDataformDetails(ctx context.Context, startStr, endStr, jobL
 		curr = curr.AddDate(0, 1, 0)
 	}
 
-	// 1. Fetch unified data directly from your verified read-through Firestore/BQ manager
 	var auditRecords []LineageRecord
 	lineageMgr, err := NewLineageManager(ctx, gcpProjectID)
 	if err == nil {
@@ -390,13 +383,11 @@ func (m module) fetchDataformDetails(ctx context.Context, startStr, endStr, jobL
 		}
 	}
 
-	// 2. Pivot the unified operational data into our dynamic month grid map
 	type tableStats struct {
 		runs map[string]int64
 		cost map[string]float64
 	}
 
-	// Key format: project_name|schema_name|table_name
 	pivotMap := make(map[string]*tableStats)
 
 	for _, rec := range auditRecords {
@@ -419,7 +410,6 @@ func (m module) fetchDataformDetails(ctx context.Context, startStr, endStr, jobL
 		pivotMap[key].cost[mStr] += rec.Cost
 	}
 
-	// 3. Construct your final UI model
 	var details []DFResourceCostEx
 	for key, stats := range pivotMap {
 		parts := strings.Split(key, "|")
@@ -436,7 +426,6 @@ func (m module) fetchDataformDetails(ctx context.Context, startStr, endStr, jobL
 			totalCostForRange += cVal
 			totalRunsForRange += stats.runs[m]
 
-			// Compute month-over-month comparisons dynamically
 			prevMDate, _ := time.Parse("2006-01", m)
 			prevMStr := prevMDate.AddDate(0, -1, 0).Format("2006-01")
 			prevCVal := stats.cost[prevMStr]
@@ -459,7 +448,6 @@ func (m module) fetchDataformDetails(ctx context.Context, startStr, endStr, jobL
 		})
 	}
 
-	// Order entries so your highest impact tables sit at the top
 	sort.Slice(details, func(i, j int) bool {
 		return details[i].TotalNum > details[j].TotalNum
 	})

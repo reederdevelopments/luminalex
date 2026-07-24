@@ -32,7 +32,6 @@ type DashboardData struct {
 	DayLabels []string
 }
 
-// formatWithCommas formats float to comma separated string (e.g. 14,230.75)
 func formatWithCommas(n float64) string {
 	in := fmt.Sprintf("%.2f", n)
 	parts := strings.Split(in, ".")
@@ -48,7 +47,6 @@ func formatWithCommas(n float64) string {
 	return string(out) + "." + parts[1]
 }
 
-// generateSmoothSVGPath creates a Cubic Bezier curve string for SVGs
 func generateSmoothSVGPath(data []float64, max float64) string {
 	if len(data) == 0 || max == 0 {
 		return "M0,30 L100,30"
@@ -58,7 +56,7 @@ func generateSmoothSVGPath(data []float64, max float64) string {
 		x := float64(i) * (100.0 / 6.0)
 		y := 30.0 - (val/max)*26.0
 		if y < 4.0 {
-			y = 4.0 // Keep in bounds
+			y = 4.0
 		}
 
 		if i == 0 {
@@ -70,7 +68,6 @@ func generateSmoothSVGPath(data []float64, max float64) string {
 				prevY = 4.0
 			}
 
-			// Cubic bezier control points for smooth horizontal flow
 			cp1x := prevX + (x-prevX)*0.5
 			cp2x := prevX + (x-prevX)*0.5
 			path.WriteString(fmt.Sprintf("C%.1f,%.1f %.1f,%.1f %.1f,%.1f ", cp1x, prevY, cp2x, y, x, y))
@@ -97,7 +94,6 @@ func (m module) dashboardHandler(w http.ResponseWriter, r *http.Request) error {
 		KBDeltaPositive:    true,
 	}
 
-	// 1. Prepare Trailing 7 Day Arrays
 	now := time.Now()
 	dates := make([]string, 7)
 	dayLabels := make([]string, 7)
@@ -108,7 +104,6 @@ func (m module) dashboardHandler(w http.ResponseWriter, r *http.Request) error {
 	}
 	data.DayLabels = dayLabels
 
-	// --- FETCH COST DATA ---
 	costData := make([]float64, 7)
 	costCompute := make([]float64, 7)
 	costStorage := make([]float64, 7)
@@ -118,12 +113,11 @@ func (m module) dashboardHandler(w http.ResponseWriter, r *http.Request) error {
 	if err == nil {
 		defer bq.Close()
 
-		// Fetch Totals
 		qTotal := bq.Query(`
 			SELECT 
 				SUM(CASE WHEN DATE(usage_start_time) >= DATE_SUB(CURRENT_DATE(), INTERVAL 7 DAY) THEN cost + IFNULL((SELECT SUM(c.amount) FROM UNNEST(credits) c), 0) ELSE 0 END) as current_cost,
 				SUM(CASE WHEN DATE(usage_start_time) >= DATE_SUB(CURRENT_DATE(), INTERVAL 14 DAY) AND DATE(usage_start_time) < DATE_SUB(CURRENT_DATE(), INTERVAL 7 DAY) THEN cost + IFNULL((SELECT SUM(c.amount) FROM UNNEST(credits) c), 0) ELSE 0 END) as prev_cost
-			FROM ` + "`df-ps-staging.GOOGLE_COSTING.gcp_billing_export_resource_v1_01FF43_BAACE5_55390D`" + `
+			FROM ` + "`df-ps-staging.EXT_GCP_BILLING.gcp_billing_export_resource_v1_01FF43_BAACE5_55390D`" + `
 			WHERE DATE(usage_start_time) >= DATE_SUB(CURRENT_DATE(), INTERVAL 14 DAY)
 		`)
 		itTotal, err := qTotal.Read(ctx)
@@ -157,7 +151,6 @@ func (m module) dashboardHandler(w http.ResponseWriter, r *http.Request) error {
 			}
 		}
 
-		// Fetch Time Series Breakdown
 		qTrend := bq.Query(`
 			SELECT
 				CAST(DATE(usage_start_time) AS STRING) as usage_date,
@@ -165,7 +158,7 @@ func (m module) dashboardHandler(w http.ResponseWriter, r *http.Request) error {
 					 WHEN service.description IN ('Cloud Functions', 'Cloud Run', 'Cloud Run Functions', 'Compute Engine', 'App Engine') THEN 'Compute'
 					 ELSE 'Storage' END as category,
 				SUM(cost + IFNULL((SELECT SUM(c.amount) FROM UNNEST(credits) c), 0)) as daily_cost
-			FROM ` + "`df-ps-staging.GOOGLE_COSTING.gcp_billing_export_resource_v1_01FF43_BAACE5_55390D`" + `
+			FROM ` + "`df-ps-staging.EXT_GCP_BILLING.gcp_billing_export_resource_v1_01FF43_BAACE5_55390D`" + `
 			WHERE DATE(usage_start_time) >= DATE_SUB(CURRENT_DATE(), INTERVAL 7 DAY)
 			GROUP BY usage_date, category
 		`)
@@ -212,7 +205,6 @@ func (m module) dashboardHandler(w http.ResponseWriter, r *http.Request) error {
 		}
 	}
 
-	// --- FETCH KNOWLEDGE BASE DATA ---
 	kbCreated := make([]int, 7)
 	kbUpdated := make([]int, 7)
 	var maxKB int
@@ -248,13 +240,11 @@ func (m module) dashboardHandler(w http.ResponseWriter, r *http.Request) error {
 			}
 		}
 
-		// Simple mock delta calculations for UI completion
 		data.KBDeltaPct = "+2.5%"
 		data.KBDeltaVal = 4
 		data.KBDeltaPositive = true
 	}
 
-	// Safety fallback mock injections for empty environments
 	if maxCost == 0 || data.CurrentSpend == "$0.00" {
 		data.CurrentSpend = "$14,230.75"
 		data.SpendDeltaPct = "+2.3%"
@@ -275,13 +265,11 @@ func (m module) dashboardHandler(w http.ResponseWriter, r *http.Request) error {
 		maxKB = 18
 	}
 
-	// Map data to SVG properties
 	data.CostPathData = generateSmoothSVGPath(costData, maxCost)
 	data.CostPathCompute = generateSmoothSVGPath(costCompute, maxCost)
 	data.CostPathStorage = generateSmoothSVGPath(costStorage, maxCost)
 	data.CostPathFill = data.CostPathData + " L100,30 L0,30 Z"
 
-	// Map KB stats to Heights %
 	data.KBCreatedHeights = make([]int, 7)
 	data.KBUpdatedHeights = make([]int, 7)
 	for i := 0; i < 7; i++ {
