@@ -1,0 +1,29 @@
+package views
+
+templ Login(data LoginData) {
+	@Layout("LuminaLex - Login", false) {
+		<div class="w-full h-full flex items-center justify-center">
+			<form action="/login" method="POST" class="bg-[#0b1d2e]/80 border border-[#a68a56]/30 p-10 rounded-none shadow-2xl w-full max-w-md flex flex-col gap-6 backdrop-blur-sm">
+				<div class="flex flex-col items-center justify-center gap-2">
+					<img src="/assets/logo_text.png" class="w-48"/>
+				</div>
+				if data.Error != "" {
+					<div class="bg-red-500/10 text-red-400 border border-red-500/20 p-3 text-sm text-center font-sans">
+						{ data.Error }
+					</div>
+				}
+				<div class="flex flex-col gap-2 font-sans">
+					<label for="username" class="text-xs uppercase tracking-widest text-[#a68a56]">Username</label>
+					<input type="text" id="username" name="username" value="admin" class="bg-black/40 border border-[#a68a56]/30 text-[#f9f8f6] p-3 text-sm focus:outline-none focus:border-[#a68a56] transition-colors"/>
+				</div>
+				<div class="flex flex-col gap-2 font-sans">
+					<label for="password" class="text-xs uppercase tracking-widest text-[#a68a56]">Password</label>
+					<input type="password" id="password" name="password" value="admin" class="bg-black/40 border border-[#a68a56]/30 text-[#f9f8f6] p-3 text-sm focus:outline-none focus:border-[#a68a56] transition-colors"/>
+				</div>
+				<button type="submit" class="bg-[#0b1d2e] border border-[#a68a56] text-[#a68a56] hover:bg-[#a68a56] hover:text-[#0b1d2e] font-bold py-3 px-4 uppercase tracking-widest text-sm transition-colors mt-4 shadow-lg">
+					Login
+				</button>
+			</form>
+		</div>
+	}
+}

@@ -1,0 +1,13 @@
+{
+  "$schema": "https://wails.io/schemas/config.v2.json",
+  "name": "LuminaLex",
+  "outputfilename": "LuminaLex",
+  "frontend:build": "templ generate",
+  "frontend:dir": ".",
+  "frontend:dev:watcher": "templ generate --watch",
+  "run:cmd": "go run .",
+  "author": {
+    "name": "Admin",
+    "email": "admin@luminalex.local"
+  }
+}
