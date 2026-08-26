@@ -41,7 +41,7 @@ func Home(data HomeData) templ.Component {
 				}()
 			}
 			ctx = templ.InitializeContext(ctx)
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div class=\"flex flex-col items-center justify-center gap-6 text-center\"><h1 class=\"text-6xl font-black text-[#a68a56] tracking-tighter drop-shadow-lg\">LuminaLex</h1><p class=\"text-xl text-[#f9f8f6]/80 font-medium\">Welcome to the central command center.</p></div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div class=\"w-full h-full flex flex-col items-center justify-center animate-fade-in-up\"></div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

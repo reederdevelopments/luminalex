@@ -41,10 +41,27 @@ export namespace core {
 		    return a;
 		}
 	}
+	export class ExportPayload {
+	    filename: string;
+	    headers: string[];
+	    rows: string[][];
+	
+	    static createFrom(source: any = {}) {
+	        return new ExportPayload(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.filename = source["filename"];
+	        this.headers = source["headers"];
+	        this.rows = source["rows"];
+	    }
+	}
 	export class SyncStatus {
 	    is_syncing: boolean;
 	    last_sync: string;
 	    error: string;
+	    details: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new SyncStatus(source);
@@ -55,6 +72,7 @@ export namespace core {
 	        this.is_syncing = source["is_syncing"];
 	        this.last_sync = source["last_sync"];
 	        this.error = source["error"];
+	        this.details = source["details"];
 	    }
 	}
 	export class UpdateCheckResult {

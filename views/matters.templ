@@ -1,0 +1,731 @@
+package views
+
+import "encoding/json"
+
+func getClientDataJSON(clients []Client) string {
+	b, _ := json.Marshal(clients)
+	return string(b)
+}
+
+func getServicesDataJSON(services []Service) string {
+	b, _ := json.Marshal(services)
+	return string(b)
+}
+
+templ Matters(clients []Client, services []Service, currentUser string) {
+	@Layout("LuminaLex - Matters", true) {
+		<div class="z-10 flex-1 flex flex-col h-full overflow-hidden bg-black/60 backdrop-blur-sm animate-fade-in-up">
+			
+            <div id="matter-injected-data" class="hidden" 
+                data-clients={ getClientDataJSON(clients) } 
+                data-services={ getServicesDataJSON(services) } 
+                data-user={ currentUser }>
+            </div>
+
+			<div id="matters-list-view" class="flex flex-col h-full p-8">
+				<div class="flex justify-between items-center border-b border-[#a68a56]/50 mb-6 pb-4 shrink-0">
+					<div class="flex items-center gap-4 flex-1">
+						<input type="text" id="matter-search" placeholder="SEARCH MATTERS..." class="w-1/3 bg-black/40 border border-[#a68a56]/30 text-[#f9f8f6] p-3 text-xs focus:outline-none focus:border-[#a68a56] uppercase tracking-widest rounded"/>
+						
+						<select id="filter-client" class="bg-[#0b1d2e] border border-[#a68a56]/30 text-[#f9f8f6] p-3 text-xs focus:outline-none focus:border-[#a68a56] uppercase tracking-widest rounded">
+							<option value="">All Clients</option>
+							for _, c := range clients {
+								<option value={ c.ID }>{ c.LastName }, { c.FirstName }</option>
+							}
+						</select>
+
+						<select id="filter-status" class="bg-[#0b1d2e] border border-[#a68a56]/30 text-[#f9f8f6] p-3 text-xs focus:outline-none focus:border-[#a68a56] uppercase tracking-widest rounded">
+							<option value="">All Statuses</option>
+							<option value="Open">Open</option>
+							<option value="In Progress">In Progress</option>
+							<option value="Referred">Referred</option>
+							<option value="Done">Done</option>
+						</select>
+
+						<select id="filter-type" class="bg-[#0b1d2e] border border-[#a68a56]/30 text-[#f9f8f6] p-3 text-xs focus:outline-none focus:border-[#a68a56] uppercase tracking-widest rounded">
+							<option value="">All Types</option>
+							<option value="Court">Court</option>
+							<option value="Document">Document</option>
+							<option value="Other">Other</option>
+						</select>
+					</div>
+					<div class="flex gap-4">
+						<button onclick="document.getElementById('new-matter-modal').classList.remove('hidden')" class="bg-[#a68a56] border border-[#a68a56] text-[#0b1d2e] hover:bg-[#0b1d2e] hover:text-[#a68a56] px-5 py-2.5 text-xs uppercase tracking-widest transition-all font-bold rounded shadow-[0_0_15px_rgba(166,138,86,0.3)] flex items-center gap-2">
+							<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+							New Matter
+						</button>
+					</div>
+				</div>
+
+				<div class="w-full flex-1 overflow-auto border border-[#a68a56]/30 bg-black/20 rounded shadow-lg">
+					<table class="w-full text-left border-collapse table-auto" id="main-matters-table">
+						<thead class="sticky top-0 bg-[#0b1d2e] z-10 shadow-md">
+							<tr class="border-b-2 border-[#a68a56]/50 text-[#a68a56] text-[10px] uppercase tracking-widest">
+								<th class="p-4">Reference</th>
+								<th class="p-4">Date Created</th>
+								<th class="p-4">Client</th>
+								<th class="p-4">Type</th>
+								<th class="p-4">Status</th>
+								<th class="p-4 text-right">Actions</th>
+							</tr>
+						</thead>
+						<tbody id="matters-table-body" class="divide-y divide-[#a68a56]/20 text-xs">
+						</tbody>
+					</table>
+				</div>
+			</div>
+
+			<div id="matter-detail-view" class="hidden flex-col h-full bg-[#0b1d2e]">
+				<div class="flex items-center justify-between border-b border-[#a68a56]/30 p-6 bg-black/40 shrink-0">
+					<div class="flex items-center gap-5">
+						<button onclick="closeMatterView()" class="w-9 h-9 flex items-center justify-center rounded-full bg-[#f9f8f6]/5 border border-[#f9f8f6]/10 hover:bg-[#f9f8f6]/10 text-[#f9f8f6] transition-colors">
+							<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
+						</button>
+						
+						<div class="w-14 h-14 rounded-full border-2 border-[#a68a56] text-[#a68a56] flex items-center justify-center text-xl font-bold shadow-[0_0_10px_rgba(166,138,86,0.2)]">M</div>
+						
+						<div>
+							<h3 id="det-matter-ref" class="text-[#f9f8f6] text-xl font-bold uppercase tracking-widest"></h3>
+							<div class="flex items-center gap-3 mt-1 text-xs text-[#f9f8f6]/70">
+								<span id="det-matter-client" class="text-emerald-400 font-bold uppercase tracking-widest"></span>
+								<span>•</span>
+								<span id="det-matter-date" class="tracking-widest"></span>
+							</div>
+						</div>
+					</div>
+				</div>
+
+				<div class="flex-1 overflow-hidden flex">
+					<div class="w-[60%] h-full p-6 overflow-y-auto flex flex-col gap-6">
+						<div class="flex justify-between items-center bg-black/30 border border-[#a68a56]/20 rounded p-4">
+							<span class="text-xs uppercase font-bold text-[#a68a56] tracking-widest">Matter Status</span>
+							<select id="matter-status-select" onchange="updateMatterStatus(this.value)" class="bg-[#0b1d2e] border border-[#a68a56]/50 text-[#f9f8f6] p-2 text-xs uppercase tracking-widest focus:outline-none focus:border-[#a68a56] rounded">
+								<option value="Open">Open</option>
+								<option value="In Progress">In Progress</option>
+								<option value="Referred">Referred</option>
+								<option value="Done">Done</option>
+							</select>
+						</div>
+
+						<div class="bg-black/30 border border-[#a68a56]/20 rounded-xl p-6 shadow-inner">
+							<div class="flex justify-between items-center mb-6">
+								<h4 class="text-[11px] uppercase font-bold text-[#f9f8f6] tracking-widest">Billable Services</h4>
+								<div class="flex gap-2">
+									<button onclick="document.getElementById('add-service-modal').classList.remove('hidden')" class="px-3 py-1 bg-[#a68a56]/20 border border-[#a68a56]/40 hover:bg-[#a68a56]/40 rounded text-[10px] uppercase tracking-widest text-[#a68a56] transition-colors">+ Add</button>
+									<button onclick="printInvoice()" class="px-3 py-1 bg-[#f9f8f6]/5 border border-[#f9f8f6]/10 hover:bg-[#f9f8f6]/10 rounded text-[10px] uppercase tracking-widest text-[#f9f8f6] transition-colors">Print Invoice</button>
+								</div>
+							</div>
+							
+							<div class="w-full overflow-auto border border-[#a68a56]/20 bg-black/40 rounded">
+								<table class="w-full text-left border-collapse">
+									<thead class="bg-[#0b1d2e]">
+										<tr class="border-b border-[#a68a56]/30 text-[#a68a56] text-[9px] uppercase tracking-widest">
+											<th class="p-3">Description</th>
+											<th class="p-3">Rate/Unit</th>
+											<th class="p-3">Qty</th>
+											<th class="p-3">Tax</th>
+											<th class="p-3">Total</th>
+											<th class="p-3 text-right">Actions</th>
+										</tr>
+									</thead>
+									<tbody id="matter-services-body" class="divide-y divide-[#a68a56]/10 text-[10px] text-[#f9f8f6]">
+									</tbody>
+									<tfoot class="bg-[#0b1d2e]/50 border-t-2 border-[#a68a56]/40 text-[#a68a56] text-xs font-bold">
+										<tr>
+											<td colspan="4" class="p-3 text-right">Subtotal:</td>
+											<td colspan="2" class="p-3" id="matter-subtotal">R0.00</td>
+										</tr>
+										<tr>
+											<td colspan="4" class="p-3 text-right">VAT (15%):</td>
+											<td colspan="2" class="p-3" id="matter-vat">R0.00</td>
+										</tr>
+										<tr class="text-sm">
+											<td colspan="4" class="p-3 text-right uppercase tracking-widest">Grand Total:</td>
+											<td colspan="2" class="p-3 text-[#f9f8f6]" id="matter-total">R0.00</td>
+										</tr>
+									</tfoot>
+								</table>
+							</div>
+						</div>
+
+						<details class="bg-black/30 border border-[#a68a56]/20 rounded-xl shadow-inner group">
+							<summary class="p-4 flex justify-between items-center cursor-pointer list-none text-[11px] uppercase font-bold text-[#f9f8f6] tracking-widest border-b border-transparent group-open:border-[#a68a56]/20">
+								Client Data
+								<span class="text-[#a68a56] transition-transform group-open:rotate-180">▼</span>
+							</summary>
+							<div class="p-6 text-xs text-[#f9f8f6]/70 leading-relaxed" id="matter-client-data"></div>
+						</details>
+					</div>
+
+					<div class="w-[40%] h-full p-6 border-l border-[#a68a56]/30 bg-black/20 flex flex-col gap-4">
+						<h4 class="text-[11px] uppercase font-bold text-[#a68a56] tracking-widest border-b border-[#a68a56]/20 pb-2">Matter Notes</h4>
+						
+						<div class="flex flex-col gap-2">
+							<textarea id="new-note-content" rows="3" placeholder="Write a note..." class="w-full bg-black/40 border border-[#a68a56]/30 text-[#f9f8f6] p-3 text-xs focus:outline-none focus:border-[#a68a56] rounded resize-none"></textarea>
+							<div class="flex justify-end">
+								<button onclick="saveNote()" class="px-4 py-1.5 bg-[#a68a56] text-[#0b1d2e] font-bold text-[10px] uppercase tracking-widest rounded hover:bg-[#d4c299] transition-colors">Post Note</button>
+							</div>
+						</div>
+
+						<div id="notes-container" class="flex-1 overflow-y-auto pr-2 flex flex-col gap-4 mt-4"></div>
+					</div>
+				</div>
+			</div>
+			
+			<div id="new-matter-modal" class="hidden fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4 backdrop-blur-sm animate-fade-in-up">
+				<div class="bg-[#0b1d2e] border border-[#a68a56]/50 rounded-xl w-full max-w-md shadow-2xl flex flex-col">
+					<div class="p-6 border-b border-[#a68a56]/30">
+						<h3 class="text-[#a68a56] text-base font-bold uppercase tracking-widest">Create New Matter</h3>
+					</div>
+					<div class="p-6 flex flex-col gap-5">
+						<div class="flex flex-col gap-2">
+							<label class="text-[10px] text-[#a68a56] uppercase tracking-widest">Select Client</label>
+							<select id="new-matter-client" class="w-full bg-black/40 border border-[#a68a56]/30 text-[#f9f8f6] p-3 text-xs focus:outline-none focus:border-[#a68a56] rounded">
+								for _, c := range clients {
+									<option value={ c.ID }>{ c.LastName }, { c.FirstName } ({ c.IDNumber })</option>
+								}
+							</select>
+						</div>
+						<div class="flex flex-col gap-2">
+							<label class="text-[10px] text-[#a68a56] uppercase tracking-widest">Matter Type</label>
+							<select id="new-matter-type" class="w-full bg-black/40 border border-[#a68a56]/30 text-[#f9f8f6] p-3 text-xs focus:outline-none focus:border-[#a68a56] rounded">
+								<option value="Court">Court</option>
+								<option value="Document">Document</option>
+								<option value="Other">Other</option>
+							</select>
+						</div>
+					</div>
+					<div class="p-6 border-t border-[#a68a56]/30 flex justify-end gap-3 bg-black/40 rounded-b-xl">
+						<button onclick="document.getElementById('new-matter-modal').classList.add('hidden')" class="px-4 py-2 text-xs uppercase tracking-widest text-red-400 border border-red-500/30 hover:bg-red-500/10 rounded transition-colors">Cancel</button>
+						<button onclick="createMatter()" class="px-4 py-2 text-xs uppercase tracking-widest font-bold text-[#0b1d2e] bg-[#a68a56] hover:bg-[#d4c299] rounded transition-colors">Create Matter</button>
+					</div>
+				</div>
+			</div>
+
+			<div id="add-service-modal" class="hidden fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4 backdrop-blur-sm animate-fade-in-up">
+				<div class="bg-[#0b1d2e] border border-[#a68a56]/50 rounded-xl w-full max-w-md shadow-2xl flex flex-col">
+					<div class="p-6 border-b border-[#a68a56]/30">
+						<h3 class="text-[#a68a56] text-base font-bold uppercase tracking-widest">Append Billable Service</h3>
+					</div>
+					<div class="p-6 flex flex-col gap-5">
+						<div class="flex flex-col gap-2">
+							<label class="text-[10px] text-[#a68a56] uppercase tracking-widest">Directory Category</label>
+							<select id="add-svc-cat" onchange="updateServiceDropdown()" class="w-full bg-black/40 border border-[#a68a56]/30 text-[#f9f8f6] p-3 text-xs focus:outline-none focus:border-[#a68a56] rounded">
+								<option value="Wentzel Law">Wentzel Law</option>
+								<option value="High Court">High Court</option>
+								<option value="Magistrate's Court">Magistrate's Court</option>
+							</select>
+						</div>
+						<div class="flex flex-col gap-2">
+							<label class="text-[10px] text-[#a68a56] uppercase tracking-widest">Select Service</label>
+							<select id="add-svc-item" class="w-full bg-black/40 border border-[#a68a56]/30 text-[#f9f8f6] p-3 text-xs focus:outline-none focus:border-[#a68a56] rounded">
+							</select>
+						</div>
+						<div class="flex gap-4">
+							<div class="flex flex-col gap-2 flex-1">
+								<label class="text-[10px] text-[#a68a56] uppercase tracking-widest">Qty / Duration</label>
+								<input type="number" id="add-svc-qty" value="1" step="0.1" class="w-full bg-black/40 border border-[#a68a56]/30 text-[#f9f8f6] p-3 text-xs focus:outline-none focus:border-[#a68a56] rounded font-mono"/>
+							</div>
+							<div class="flex flex-col gap-2 justify-end pb-3">
+								<label class="flex items-center gap-2 cursor-pointer text-xs text-[#f9f8f6] uppercase tracking-widest">
+									<input type="checkbox" id="add-svc-tax" checked class="accent-[#a68a56] w-4 h-4"/>
+									Add VAT
+								</label>
+							</div>
+						</div>
+					</div>
+					<div class="p-6 border-t border-[#a68a56]/30 flex justify-end gap-3 bg-black/40 rounded-b-xl">
+						<button onclick="document.getElementById('add-service-modal').classList.add('hidden')" class="px-4 py-2 text-xs uppercase tracking-widest text-red-400 border border-red-500/30 hover:bg-red-500/10 rounded transition-colors">Cancel</button>
+						<button onclick="appendServiceToMatter()" class="px-4 py-2 text-xs uppercase tracking-widest font-bold text-[#0b1d2e] bg-[#a68a56] hover:bg-[#d4c299] rounded transition-colors">Add to Matter</button>
+					</div>
+				</div>
+			</div>
+
+			<div id="print-overlay" class="hidden fixed inset-0 z-[100] bg-[#0b1d2e]/95 overflow-y-auto flex-col items-center p-8 backdrop-blur-md">
+				<div class="w-full max-w-[850px] flex justify-end gap-4 mb-4">
+					<button onclick="window.print()" class="px-5 py-2 bg-[#a68a56] text-[#0b1d2e] text-xs font-bold uppercase tracking-widest rounded shadow-lg">Print / Export PDF</button>
+					<button onclick="document.getElementById('print-overlay').classList.add('hidden')" class="px-5 py-2 bg-white text-[#0b1d2e] text-xs font-bold uppercase tracking-widest rounded border border-gray-300">Close Document</button>
+				</div>
+				<div class="bg-white w-full max-w-[850px] p-16 relative shadow-2xl text-[#1a1a1a] font-serif print:m-0 print:p-0 print:shadow-none print:max-w-none">
+					<div class="flex justify-between items-start border-b-[3px] border-double border-[#a68a56] pb-8 mb-12">
+						<div>
+							<h2 class="text-[1.8rem] uppercase tracking-[2px] text-[#a68a56] mb-1">Wentzel Wagener Incorporated</h2>
+							<p class="text-sm uppercase tracking-widest text-[#4a4a4a] mb-4">Attorneys, Notaries & Conveyancers</p>
+							<div class="text-[0.95rem] leading-relaxed text-[#4a4a4a]">
+								<p>150 St George's Mall</p>
+								<p>Cape Town City Centre, 8001</p>
+								<p>accounts@wentzelwagener.co.za | +27 21 555 0198</p>
+							</div>
+						</div>
+						<div class="text-right">
+							<h1 class="text-[2.5rem] tracking-[3px] text-[#0b1d2e] mb-4">TAX INVOICE</h1>
+							<div class="text-[0.95rem] text-[#4a4a4a]">
+								<p><strong class="text-[#0b1d2e]">Invoice No:</strong> <span id="print-inv-no"></span></p>
+								<p><strong class="text-[#0b1d2e]">Date Issued:</strong> <span id="print-inv-date"></span></p>
+								<p><strong class="text-[#0b1d2e]">VAT Reg No:</strong> 4890123456</p>
+							</div>
+						</div>
+					</div>
+
+					<div class="grid grid-cols-2 gap-8 mb-12">
+						<div class="border border-gray-300 p-6">
+							<h4 class="text-xs uppercase tracking-widest border-b border-gray-300 pb-2 mb-4 text-[#4a4a4a]">Instructing Party</h4>
+							<h3 id="print-client-name" class="text-lg text-[#1a1a1a] mb-2 font-bold"></h3>
+							<p id="print-client-details" class="text-sm text-[#4a4a4a] whitespace-pre-wrap"></p>
+						</div>
+						<div class="border border-gray-300 p-6">
+							<h4 class="text-xs uppercase tracking-widest border-b border-gray-300 pb-2 mb-4 text-[#4a4a4a]">Banking Particulars</h4>
+							<div class="text-sm text-[#4a4a4a] leading-relaxed">
+								<p><strong class="text-[#0b1d2e]">Bank:</strong> First National Bank</p>
+								<p><strong class="text-[#0b1d2e]">Account Name:</strong> Wentzel Wagener Inc Trust</p>
+								<p><strong class="text-[#0b1d2e]">Account No:</strong> 62000000000</p>
+								<p><strong class="text-[#0b1d2e]">Branch Code:</strong> 250655</p>
+							</div>
+						</div>
+					</div>
+
+					<table class="w-full border-collapse mb-8 text-sm">
+						<thead>
+							<tr>
+								<th class="text-left py-4 border-t-2 border-b-2 border-[#0b1d2e] text-[#0b1d2e] uppercase tracking-widest font-normal">Particulars of Account</th>
+								<th class="text-right py-4 border-t-2 border-b-2 border-[#0b1d2e] text-[#0b1d2e] uppercase tracking-widest font-normal">Rate/Unit</th>
+								<th class="text-right py-4 border-t-2 border-b-2 border-[#0b1d2e] text-[#0b1d2e] uppercase tracking-widest font-normal">Qty</th>
+								<th class="text-right py-4 border-t-2 border-b-2 border-[#0b1d2e] text-[#0b1d2e] uppercase tracking-widest font-normal">Amount</th>
+							</tr>
+						</thead>
+						<tbody id="print-services-body"></tbody>
+					</table>
+
+					<div class="w-[45%] ml-auto mt-8">
+						<div class="flex justify-between py-2 text-[1.1rem]">
+							<span>Fees Subtotal</span>
+							<span>R<span id="print-subtotal"></span></span>
+						</div>
+						<div class="flex justify-between py-2 text-[1.1rem]">
+							<span>Value Added Tax (15%)</span>
+							<span>R<span id="print-vat"></span></span>
+						</div>
+						<div class="flex justify-between py-4 mt-2 border-t-[3px] border-b-[3px] border-double border-[#a68a56] text-[1.4rem] font-bold text-[#0b1d2e]">
+							<span>Total Due</span>
+							<span>R<span id="print-total"></span></span>
+						</div>
+					</div>
+
+					<div class="mt-16 text-center text-xs text-[#4a4a4a] border-t border-gray-300 pt-4 italic">
+						Terms: Strictly 30 days from date of presentation. Interest will be charged on overdue accounts at the prime overdraft rate. All work is undertaken subject to the firm's standard terms of engagement. E&OE.
+					</div>
+				</div>
+			</div>
+
+		</div>
+		
+		<style>
+			@media print {
+				@page { 
+					size: A4; 
+					margin: 15mm; 
+				}
+				
+				body, html { 
+					background: white !important; 
+					color: black !important;
+					height: auto !important;
+					overflow: visible !important;
+				}
+
+				/* Hide the sidebar and background image */
+				#sidebar-expanded, #sidebar-collapsed, body > div > img {
+					display: none !important;
+				}
+
+				/* Reset the main wrapper */
+				body > div {
+					display: block !important;
+					height: auto !important;
+					overflow: visible !important;
+				}
+
+				/* Reset the content wrapper */
+				.z-10.flex-1 {
+					display: block !important;
+					height: auto !important;
+					overflow: visible !important;
+					padding: 0 !important;
+				}
+
+				/* Hide all direct children of the content wrapper EXCEPT the print overlay */
+				.z-10.flex-1 > *:not(#print-overlay) {
+					display: none !important;
+				}
+
+				/* Setup the print overlay */
+				#print-overlay {
+					display: block !important;
+					position: relative !important;
+					background: white !important;
+					padding: 0 !important;
+					height: auto !important;
+					overflow: visible !important;
+				}
+
+				/* Hide the print buttons inside the overlay */
+				#print-overlay > div:first-child {
+					display: none !important;
+				}
+
+				/* Reset the invoice paper container */
+				#print-overlay > div:last-child {
+					max-width: 100% !important;
+					padding: 0 !important;
+					margin: 0 !important;
+					box-shadow: none !important;
+					border: none !important;
+				}
+
+				/* Prevent page breaks inside rows */
+				table { page-break-inside: auto; width: 100% !important; }
+				tr { page-break-inside: avoid; page-break-after: auto; }
+			}
+		</style>
+
+		<script>
+            const injectedData = document.getElementById('matter-injected-data');
+			const RAW_CLIENTS = JSON.parse(injectedData.getAttribute('data-clients') || '[]');
+			const RAW_SERVICES = JSON.parse(injectedData.getAttribute('data-services') || '[]');
+			const CURRENT_USER = injectedData.getAttribute('data-user');
+
+			const APP_STATE = {
+				matters: [],
+				currentMatterId: null,
+				notes: [],
+				matterServices: []
+			};
+
+			async function loadMatters() {
+				const res = await fetch('/api/matters');
+				if (res.ok) {
+					APP_STATE.matters = await res.json() || [];
+					renderMatters();
+				}
+			}
+
+			function renderMatters() {
+				const tbody = document.getElementById('matters-table-body');
+				tbody.innerHTML = '';
+				
+				const search = document.getElementById('matter-search').value.toLowerCase();
+				const clientF = document.getElementById('filter-client').value;
+				const statusF = document.getElementById('filter-status').value;
+				const typeF = document.getElementById('filter-type').value;
+
+				const filtered = APP_STATE.matters.filter(m => {
+					if(search && !m.reference.toLowerCase().includes(search)) return false;
+					if(clientF && m.client_id !== clientF) return false;
+					if(statusF && m.status !== statusF) return false;
+					if(typeF && m.matter_type !== typeF) return false;
+					return true;
+				});
+
+				filtered.forEach(m => {
+					const client = RAW_CLIENTS.find(c => c.id === m.client_id);
+					const clientName = client ? `${client.last_name}, ${client.first_name}` : 'Unknown';
+					const dateStr = new Date(m.updated_at).toLocaleDateString('en-ZA');
+
+					tbody.innerHTML += `
+						<tr class="hover:bg-[#a68a56]/10 transition-colors text-[#f9f8f6]">
+							<td class="p-4 font-bold text-[#a68a56]">${m.reference}</td>
+							<td class="p-4">${dateStr}</td>
+							<td class="p-4">${clientName}</td>
+							<td class="p-4">${m.matter_type}</td>
+							<td class="p-4">
+								<span class="px-2 py-1 rounded text-[9px] uppercase tracking-widest border ${getStatusStyle(m.status)}">${m.status}</span>
+							</td>
+							<td class="p-4 text-right flex justify-end gap-3">
+								<button onclick="openMatter('${m.id}')" class="text-[#a68a56] hover:text-[#d4c299] uppercase tracking-widest text-[10px] font-bold">View</button>
+								<button onclick="deleteMatter('${m.id}')" class="text-red-500 hover:text-red-400 uppercase tracking-widest text-[10px] font-bold">Delete</button>
+							</td>
+						</tr>
+					`;
+				});
+			}
+
+			function getStatusStyle(status) {
+				if(status === 'Open') return 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30';
+				if(status === 'In Progress') return 'bg-blue-500/20 text-blue-400 border-blue-500/30';
+				if(status === 'Done') return 'bg-gray-500/20 text-gray-400 border-gray-500/30';
+				if(status === 'Referred') return 'bg-purple-500/20 text-purple-400 border-purple-500/30';
+				return 'bg-gray-500/20 text-gray-400 border-gray-500/30';
+			}
+
+			async function createMatter() {
+				const clientId = document.getElementById('new-matter-client').value;
+				const type = document.getElementById('new-matter-type').value;
+				if(!clientId) return alert("Select a client.");
+
+				const res = await fetch('/api/matters/save', {
+					method: 'POST',
+					headers: {'Content-Type': 'application/json'},
+					body: JSON.stringify({ client_id: clientId, matter_type: type, status: 'Open' })
+				});
+
+				if(res.ok) {
+					document.getElementById('new-matter-modal').classList.add('hidden');
+					await loadMatters();
+				}
+			}
+
+			async function deleteMatter(id) {
+				if(!confirm("Are you sure?")) return;
+				const res = await fetch('/api/matters/delete', {
+					method: 'POST',
+					headers: {'Content-Type': 'application/json'},
+					body: JSON.stringify({ id })
+				});
+				if(res.ok) loadMatters();
+			}
+
+			async function openMatter(id) {
+				APP_STATE.currentMatterId = id;
+				const m = APP_STATE.matters.find(x => x.id === id);
+                if (!m) return;
+				const client = RAW_CLIENTS.find(c => c.id === m.client_id);
+				
+				document.getElementById('matters-list-view').classList.add('hidden');
+				document.getElementById('matter-detail-view').classList.remove('hidden');
+				document.getElementById('matter-detail-view').classList.add('flex');
+
+				document.getElementById('det-matter-ref').innerText = m.reference;
+				document.getElementById('det-matter-client').innerText = client ? `${client.first_name} ${client.last_name}` : 'Unknown';
+				document.getElementById('det-matter-date').innerText = new Date(m.updated_at).toLocaleDateString('en-ZA');
+				document.getElementById('matter-status-select').value = m.status;
+
+				document.getElementById('matter-client-data').innerHTML = `
+					<p><strong>ID Number:</strong> ${client ? client.id_number || 'N/A' : 'N/A'}</p>
+					<p><strong>Jurisdiction:</strong> ${client ? client.jurisdiction_type || 'N/A' : 'N/A'}</p>
+					<p><strong>Occupation:</strong> ${client ? client.occupation || 'N/A' : 'N/A'}</p>
+					<p><strong>Employer:</strong> ${client ? client.employer_name || 'N/A' : 'N/A'}</p>
+				`;
+
+				await loadNotes();
+				await loadMatterServices();
+				updateServiceDropdown();
+			}
+
+			function closeMatterView() {
+				APP_STATE.currentMatterId = null;
+				document.getElementById('matter-detail-view').classList.add('hidden');
+				document.getElementById('matter-detail-view').classList.remove('flex');
+				document.getElementById('matters-list-view').classList.remove('hidden');
+				loadMatters();
+			}
+
+			async function updateMatterStatus(val) {
+				if(!APP_STATE.currentMatterId) return;
+				const m = APP_STATE.matters.find(x => x.id === APP_STATE.currentMatterId);
+				m.status = val;
+				await fetch('/api/matters/save', {
+					method: 'POST',
+					headers: {'Content-Type': 'application/json'},
+					body: JSON.stringify(m)
+				});
+			}
+
+			// Notes Logic
+			async function loadNotes() {
+				const res = await fetch(`/api/matters/notes?matter_id=${APP_STATE.currentMatterId}`);
+				if(res.ok) {
+					APP_STATE.notes = await res.json() || [];
+					renderNotes();
+				}
+			}
+
+			function renderNotes() {
+				const container = document.getElementById('notes-container');
+				container.innerHTML = '';
+				APP_STATE.notes.forEach(n => {
+					const dateStr = new Date(n.updated_at).toLocaleString('en-ZA', {dateStyle:'short', timeStyle:'short'});
+					const isMe = n.author === CURRENT_USER;
+					
+					container.innerHTML += `
+						<div class="flex flex-col gap-1 ${isMe ? 'items-end' : 'items-start'} mb-2">
+							<div class="text-[9px] text-[#f9f8f6]/50 uppercase tracking-widest px-1">
+								${n.author} • ${dateStr}
+							</div>
+							<div class="group relative max-w-[85%] rounded-lg p-3 text-xs leading-relaxed ${isMe ? 'bg-[#a68a56]/20 text-[#f9f8f6] rounded-tr-none border border-[#a68a56]/30' : 'bg-black/40 text-[#f9f8f6] rounded-tl-none border border-white/10'}">
+								${n.content.replace(/\n/g, '<br/>')}
+								<button onclick="deleteNote('${n.id}')" class="absolute top-1 -left-6 opacity-0 group-hover:opacity-100 text-red-500 hover:text-red-400 transition-opacity">✕</button>
+							</div>
+						</div>
+					`;
+				});
+			}
+
+			async function saveNote() {
+				const val = document.getElementById('new-note-content').value.trim();
+				if(!val) return;
+				const res = await fetch('/api/matters/notes/save', {
+					method: 'POST',
+					headers: {'Content-Type': 'application/json'},
+					body: JSON.stringify({ matter_id: APP_STATE.currentMatterId, author: CURRENT_USER, content: val })
+				});
+				if(res.ok) {
+					document.getElementById('new-note-content').value = '';
+					loadNotes();
+				}
+			}
+
+			async function deleteNote(id) {
+				if(!confirm("Delete note?")) return;
+				const res = await fetch('/api/matters/notes/delete', {
+					method: 'POST',
+					headers: {'Content-Type': 'application/json'},
+					body: JSON.stringify({ id })
+				});
+				if(res.ok) loadNotes();
+			}
+
+			// Services Logic
+			function updateServiceDropdown() {
+				const cat = document.getElementById('add-svc-cat').value;
+				const select = document.getElementById('add-svc-item');
+				select.innerHTML = '';
+				const filtered = RAW_SERVICES.filter(s => s.service_type === cat);
+				filtered.forEach(s => {
+					select.innerHTML += `<option value="${s.id}">${s.description} (R${s.standard_rate.toFixed(2)} / ${s.duration_unit})</option>`;
+				});
+			}
+
+			async function appendServiceToMatter() {
+				const svcId = document.getElementById('add-svc-item').value;
+				const qty = parseFloat(document.getElementById('add-svc-qty').value) || 1;
+				const tax = document.getElementById('add-svc-tax').checked;
+
+				const baseSvc = RAW_SERVICES.find(s => s.id === svcId);
+				if(!baseSvc) return;
+
+				const res = await fetch('/api/matters/services/save', {
+					method: 'POST',
+					headers: {'Content-Type': 'application/json'},
+					body: JSON.stringify({ 
+						matter_id: APP_STATE.currentMatterId, 
+						service_id: svcId,
+						snapshot_desc: baseSvc.description,
+						snapshot_rate: baseSvc.standard_rate,
+						snapshot_unit: baseSvc.duration_unit,
+						qty: qty,
+						add_tax: tax
+					})
+				});
+
+				if(res.ok) {
+					document.getElementById('add-service-modal').classList.add('hidden');
+					loadMatterServices();
+				}
+			}
+
+			async function loadMatterServices() {
+				const res = await fetch(`/api/matters/services?matter_id=${APP_STATE.currentMatterId}`);
+				if(res.ok) {
+					APP_STATE.matterServices = await res.json() || [];
+					renderMatterServices();
+				}
+			}
+
+			function renderMatterServices() {
+				const tbody = document.getElementById('matter-services-body');
+				tbody.innerHTML = '';
+				
+				let sub = 0;
+				let vat = 0;
+
+				APP_STATE.matterServices.forEach(ms => {
+					const lineTotal = ms.snapshot_rate * ms.qty;
+					sub += lineTotal;
+					if(ms.add_tax) vat += (lineTotal * 0.15);
+
+					tbody.innerHTML += `
+						<tr class="hover:bg-[#a68a56]/10 transition-colors">
+							<td class="p-3">${ms.snapshot_desc}</td>
+							<td class="p-3 font-mono">R${ms.snapshot_rate.toFixed(2)}/${ms.snapshot_unit}</td>
+							<td class="p-3">${ms.qty}</td>
+							<td class="p-3 text-[#a68a56]">${ms.add_tax ? 'YES' : 'NO'}</td>
+							<td class="p-3 font-mono">R${lineTotal.toFixed(2)}</td>
+							<td class="p-3 text-right">
+								<button onclick="deleteMatterService('${ms.id}')" class="text-red-500 hover:text-red-400 uppercase tracking-widest font-bold">Del</button>
+							</td>
+						</tr>
+					`;
+				});
+
+				document.getElementById('matter-subtotal').innerText = 'R' + sub.toFixed(2);
+				document.getElementById('matter-vat').innerText = 'R' + vat.toFixed(2);
+				document.getElementById('matter-total').innerText = 'R' + (sub + vat).toFixed(2);
+			}
+
+			async function deleteMatterService(id) {
+				if(!confirm("Remove service from invoice draft?")) return;
+				const res = await fetch('/api/matters/services/delete', {
+					method: 'POST',
+					headers: {'Content-Type': 'application/json'},
+					body: JSON.stringify({ id })
+				});
+				if(res.ok) loadMatterServices();
+			}
+
+			function printInvoice() {
+				if(APP_STATE.matterServices.length === 0) return alert("Add services before generating invoice.");
+				
+				const m = APP_STATE.matters.find(x => x.id === APP_STATE.currentMatterId);
+				const client = RAW_CLIENTS.find(c => c.id === m.client_id);
+				
+				document.getElementById('print-inv-no').innerText = m.reference;
+				document.getElementById('print-inv-date').innerText = new Date().toLocaleDateString('en-ZA', { day: 'numeric', month: 'long', year: 'numeric' });
+				
+				document.getElementById('print-client-name').innerText = `${client.first_name} ${client.last_name}`;
+				document.getElementById('print-client-details').innerText = `ID: ${client.id_number || 'N/A'}\n${client.employer_address_l1 || 'Address not provided'}`;
+
+				const tbody = document.getElementById('print-services-body');
+				tbody.innerHTML = '';
+				let sub = 0;
+				let vat = 0;
+
+				APP_STATE.matterServices.forEach(ms => {
+					const lineTotal = ms.snapshot_rate * ms.qty;
+					sub += lineTotal;
+					if(ms.add_tax) vat += (lineTotal * 0.15);
+
+					tbody.innerHTML += `
+						<tr>
+							<td class="py-3 border-b border-gray-200 text-[#1a1a1a]">${ms.snapshot_desc} ${ms.add_tax ? '<sup class="text-gray-400">*</sup>' : ''}</td>
+							<td class="py-3 border-b border-gray-200 text-right text-[#4a4a4a]">R${ms.snapshot_rate.toFixed(2)} / ${ms.snapshot_unit}</td>
+							<td class="py-3 border-b border-gray-200 text-right text-[#1a1a1a]">${ms.qty}</td>
+							<td class="py-3 border-b border-gray-200 text-right text-[#1a1a1a]">R${lineTotal.toFixed(2)}</td>
+						</tr>
+					`;
+				});
+
+				document.getElementById('print-subtotal').innerText = sub.toFixed(2);
+				document.getElementById('print-vat').innerText = vat.toFixed(2);
+				document.getElementById('print-total').innerText = (sub + vat).toFixed(2);
+
+				document.getElementById('print-overlay').classList.remove('hidden');
+				document.getElementById('print-overlay').classList.add('flex');
+			}
+
+			document.addEventListener('DOMContentLoaded', async () => {
+				await loadMatters();
+                
+                const params = new URLSearchParams(window.location.search);
+                const openId = params.get('open_id');
+                if (openId) {
+                    openMatter(openId);
+                }
+
+				['matter-search', 'filter-client', 'filter-status', 'filter-type'].forEach(id => {
+					document.getElementById(id)?.addEventListener('change', renderMatters);
+					document.getElementById(id)?.addEventListener('input', renderMatters);
+				});
+			});
+		</script>
+	}
+}

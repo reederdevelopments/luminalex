@@ -41,19 +41,19 @@ func Login(data LoginData) templ.Component {
 				}()
 			}
 			ctx = templ.InitializeContext(ctx)
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div class=\"w-full h-full flex items-center justify-center\"><form action=\"/login\" method=\"POST\" class=\"bg-[#0b1d2e]/80 border border-[#a68a56]/30 p-10 rounded-none shadow-2xl w-full max-w-md flex flex-col gap-6 backdrop-blur-sm\"><div class=\"flex flex-col items-center justify-center gap-2\"><img src=\"/assets/logo_text.png\" class=\"w-48\"></div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div class=\"w-full h-full flex items-center justify-center animate-fade-in\"><form action=\"/login\" method=\"POST\" class=\"bg-[#0b1d2e]/90 border border-[#a68a56]/40 p-12 rounded-lg shadow-[0_0_40px_rgba(166,138,86,0.15)] w-full max-w-md flex flex-col gap-8 backdrop-blur-md transform transition-all hover:scale-[1.01]\"><div class=\"flex flex-col items-center justify-center gap-4\"><img src=\"/assets/logo_text.png\" class=\"w-56 drop-shadow-lg\"><div class=\"h-px w-24 bg-gradient-to-r from-transparent via-[#a68a56]/50 to-transparent\"></div></div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			if data.Error != "" {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "<div class=\"bg-red-500/10 text-red-400 border border-red-500/20 p-3 text-sm text-center font-sans\">")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "<div class=\"bg-red-500/10 text-red-400 border-l-4 border-red-500 p-4 text-sm font-sans animate-shake\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var3 string
 				templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinStringErrs(data.Error)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/login.templ`, Line: 12, Col: 18}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/login.templ`, Line: 13, Col: 18}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
 				if templ_7745c5c3_Err != nil {
@@ -64,7 +64,20 @@ func Login(data LoginData) templ.Component {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "<div class=\"flex flex-col gap-2 font-sans\"><label for=\"username\" class=\"text-xs uppercase tracking-widest text-[#a68a56]\">Username</label> <input type=\"text\" id=\"username\" name=\"username\" value=\"admin\" class=\"bg-black/40 border border-[#a68a56]/30 text-[#f9f8f6] p-3 text-sm focus:outline-none focus:border-[#a68a56] transition-colors\"></div><div class=\"flex flex-col gap-2 font-sans\"><label for=\"password\" class=\"text-xs uppercase tracking-widest text-[#a68a56]\">Password</label> <input type=\"password\" id=\"password\" name=\"password\" value=\"admin\" class=\"bg-black/40 border border-[#a68a56]/30 text-[#f9f8f6] p-3 text-sm focus:outline-none focus:border-[#a68a56] transition-colors\"></div><button type=\"submit\" class=\"bg-[#0b1d2e] border border-[#a68a56] text-[#a68a56] hover:bg-[#a68a56] hover:text-[#0b1d2e] font-bold py-3 px-4 uppercase tracking-widest text-sm transition-colors mt-4 shadow-lg\">Login</button></form></div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "<div class=\"flex flex-col gap-6 font-sans\"><div class=\"relative group\"><label for=\"username\" class=\"absolute -top-2 left-3 bg-[#0b1d2e] px-1 text-[10px] uppercase tracking-widest text-[#a68a56] z-10 transition-colors group-focus-within:text-[#d4c299]\">Username</label> <input type=\"text\" id=\"username\" name=\"username\" value=\"")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var4 string
+			templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.ResolveAttributeValue(data.LastUsername)
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/login.templ`, Line: 19, Col: 80}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var4)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "\" class=\"w-full bg-black/40 border border-[#a68a56]/30 text-[#f9f8f6] p-4 pt-4 text-sm focus:outline-none focus:border-[#a68a56] focus:ring-1 focus:ring-[#a68a56]/50 transition-all rounded-md\"></div><div class=\"relative group\"><label for=\"password\" class=\"absolute -top-2 left-3 bg-[#0b1d2e] px-1 text-[10px] uppercase tracking-widest text-[#a68a56] z-10 transition-colors group-focus-within:text-[#d4c299]\">Password</label> <input type=\"password\" id=\"password\" name=\"password\" class=\"w-full bg-black/40 border border-[#a68a56]/30 text-[#f9f8f6] p-4 pt-4 text-sm focus:outline-none focus:border-[#a68a56] focus:ring-1 focus:ring-[#a68a56]/50 transition-all rounded-md\"></div></div><button type=\"submit\" class=\"relative overflow-hidden bg-[#0b1d2e] border border-[#a68a56] text-[#a68a56] font-bold py-4 px-4 uppercase tracking-widest text-sm transition-all mt-2 shadow-lg group hover:bg-[#a68a56] hover:text-[#0b1d2e] rounded-md\"><span class=\"relative z-10\">Authenticate</span><div class=\"absolute inset-0 h-full w-0 bg-[#a68a56] transition-all duration-300 ease-out group-hover:w-full z-0\"></div></button></form></div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

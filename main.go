@@ -19,7 +19,7 @@ import (
 var assets embed.FS
 
 func main() {
-	_ = godotenv.Load()
+	_ = godotenv.Load(".env")
 
 	if err := run(); err != nil {
 		fmt.Printf("ERROR: %s\n", err)
@@ -33,9 +33,10 @@ func run() error {
 	assetHandler := http.FileServer(http.FS(assets))
 
 	err := wails.Run(&options.App{
-		Title:  "LuminaLex",
-		Width:  1024,
-		Height: 768,
+		Title:            "LuminaLex",
+		Width:            1024,
+		Height:           768,
+		WindowStartState: options.Maximised,
 		AssetServer: &assetserver.Options{
 			Assets: assets,
 			Middleware: func(next http.Handler) http.Handler {
@@ -48,7 +49,8 @@ func run() error {
 						handler.ServeHTTP(w, r)
 						return
 					}
-					if r.URL.Path == "/" || r.URL.Path == "/login" || r.URL.Path == "/home" || r.URL.Path == "/contacts" {
+					// ADDED "/services" TO THIS LINE:
+					if r.URL.Path == "/" || r.URL.Path == "/login" || r.URL.Path == "/home" || r.URL.Path == "/contacts" || r.URL.Path == "/matters" || r.URL.Path == "/clients" || r.URL.Path == "/services" {
 						handler.ServeHTTP(w, r)
 						return
 					}

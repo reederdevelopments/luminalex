@@ -39,6 +39,11 @@ func NewAutoUpdater(owner, repo, currentVer string) *AutoUpdater {
 }
 
 func (u *AutoUpdater) CheckForUpdates(ctx context.Context) (*UpdateCheckResult, error) {
+	// 1. Safety Check: If environment variables are missing, silently disable updates.
+	if u.owner == "" || u.repo == "" {
+		return &UpdateCheckResult{HasUpdate: false}, nil
+	}
+
 	url := fmt.Sprintf("https://api.github.com/repos/%s/%s/releases/latest", u.owner, u.repo)
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
@@ -52,6 +57,11 @@ func (u *AutoUpdater) CheckForUpdates(ctx context.Context) (*UpdateCheckResult, 
 		return nil, fmt.Errorf("fetch latest release: %w", err)
 	}
 	defer resp.Body.Close()
+
+	// 2. Safety Check: If no releases exist yet, GitHub returns 404. Handle gracefully.
+	if resp.StatusCode == http.StatusNotFound {
+		return &UpdateCheckResult{HasUpdate: false}, nil
+	}
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("github api returned status %d", resp.StatusCode)
@@ -128,11 +138,18 @@ func (u *AutoUpdater) ApplyUpdate(ctx context.Context, downloadURL string) error
 		return fmt.Errorf("write new binary: %w", err)
 	}
 
+	return nil
+}
+
+func (u *AutoUpdater) RestartApp() error {
+	exePath, err := os.Executable()
+	if err != nil {
+		return fmt.Errorf("get executable path: %w", err)
+	}
 	cmd := exec.Command(exePath)
 	if err := cmd.Start(); err != nil {
 		return fmt.Errorf("restart binary: %w", err)
 	}
-
 	os.Exit(0)
 	return nil
 }

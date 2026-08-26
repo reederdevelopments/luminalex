@@ -8,9 +8,14 @@ templ Layout(title string, showSidebar bool) {
 			<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 			<title>{ title }</title>
 			<script src="https://cdn.tailwindcss.com"></script>
-			<script src="https://unpkg.com/htmx.org@1.9.10" integrity="sha384-D1Kt99CQMDuVetoL1lrYwg5t+9QdHe7NLX/SoJYkXDFfX37iInKRy5xLSi8nO7UC" crossorigin="anonymous"></script>
+			<style>
+				@keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+				.animate-fade-in-up { animation: fadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+				.no-scrollbar::-webkit-scrollbar { display: none; }
+				.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+			</style>
 		</head>
-		<body class="w-screen h-screen overflow-hidden m-0 p-0 text-[#f9f8f6] bg-black font-serif">
+		<body class="w-screen h-screen overflow-hidden m-0 p-0 text-[#f9f8f6] bg-black font-serif select-none">
 			<div class="relative w-full h-full flex overflow-hidden bg-black text-[#f9f8f6]">
 				<img src="/assets/background.png" class="absolute inset-0 w-full h-full object-cover opacity-40 z-0 pointer-events-none"/>
 				if showSidebar {
@@ -26,25 +31,36 @@ templ Layout(title string, showSidebar bool) {
 							<div class="px-6 py-4">
 								<div class="relative">
 									<input type="text" id="menu-search" placeholder="SEARCH..." class="w-full bg-black/20 border border-[#a68a56]/30 text-[#f9f8f6] placeholder-[#f9f8f6]/30 p-2 pl-9 text-xs uppercase tracking-widest focus:outline-none focus:border-[#a68a56] transition-colors font-sans rounded-none"/>
-									<svg class="w-4 h-4 absolute left-3 top-2.5 text-[#a68a56]" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+									<svg class="w-4 h-4 absolute left-3 top-2.5 text-[#a68a56]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
 								</div>
 							</div>
 							<nav class="flex flex-col px-4 gap-2">
 								<a href="/home" class="menu-item flex items-center gap-4 text-[#f9f8f6] border-b-[3px] border-transparent hover:border-[#a68a56] hover:text-[#a68a56] p-3 text-sm uppercase tracking-widest transition-all">
-									<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
+									<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path></svg>
+									<span class="menu-text">Home</span>
+								</a>
+								<a href="/matters" class="menu-item flex items-center gap-4 text-[#f9f8f6] border-b-[3px] border-transparent hover:border-[#a68a56] hover:text-[#a68a56] p-3 text-sm uppercase tracking-widest transition-all">
+									<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+									<span class="menu-text">Matters</span>
+								</a>
+								<a href="/clients" class="menu-item flex items-center gap-4 text-[#f9f8f6] border-b-[3px] border-transparent hover:border-[#a68a56] hover:text-[#a68a56] p-3 text-sm uppercase tracking-widest transition-all">
+									<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
 									<span class="menu-text">Clients</span>
 								</a>
-								<a href="/home" class="menu-item flex items-center gap-4 text-[#f9f8f6] border-b-[3px] border-transparent hover:border-[#a68a56] hover:text-[#a68a56] p-3 text-sm uppercase tracking-widest transition-all">
-									<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
+								<a href="/services" class="menu-item flex items-center gap-4 text-[#f9f8f6] border-b-[3px] border-transparent hover:border-[#a68a56] hover:text-[#a68a56] p-3 text-sm uppercase tracking-widest transition-all">
+									<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
 									<span class="menu-text">Services</span>
 								</a>
 								<a href="/contacts" class="menu-item flex items-center gap-4 text-[#f9f8f6] border-b-[3px] border-transparent hover:border-[#a68a56] hover:text-[#a68a56] p-3 text-sm uppercase tracking-widest transition-all">
-									<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
+									<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
 									<span class="menu-text">Contacts</span>
 								</a>
 							</nav>
 						</div>
-						<div class="p-6 border-t border-[#a68a56]/30 bg-[#0b1d2e]">
+						<div class="p-6 border-t border-[#a68a56]/30 bg-[#0b1d2e] flex flex-col gap-4">
+							<button onclick="checkUpdate()" class="text-sm font-normal text-[#d4c299] hover:text-[#a68a56] uppercase tracking-widest transition-colors flex items-center gap-2 text-left w-full">
+								Check For Updates
+							</button>
 							<a href="/" class="text-sm font-normal text-[#d4c299] hover:text-[#a68a56] uppercase tracking-widest transition-colors flex items-center gap-2">
 								Secure Logout
 							</a>
@@ -56,26 +72,40 @@ templ Layout(title string, showSidebar bool) {
 								<img src="/assets/logo_notext.png" alt="Logo" class="w-12 h-12 object-contain drop-shadow-md"/>
 							</button>
 							<nav class="flex flex-col gap-6 w-full items-center">
-								<a href="/home" class="text-[#f9f8f6] hover:text-[#a68a56] transition-colors" title="Clients">
-									<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
+								<a href="/home" class="text-[#f9f8f6] hover:text-[#a68a56] transition-colors" title="Home">
+									<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path></svg>
 								</a>
-								<a href="/home" class="text-[#f9f8f6] hover:text-[#a68a56] transition-colors" title="Services">
-									<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
+								<a href="/matters" class="text-[#f9f8f6] hover:text-[#a68a56] transition-colors" title="Matters">
+									<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+								</a>
+								<a href="/clients" class="text-[#f9f8f6] hover:text-[#a68a56] transition-colors" title="Clients">
+									<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
+								</a>
+								<a href="/services" class="text-[#f9f8f6] hover:text-[#a68a56] transition-colors" title="Services">
+									<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
 								</a>
 								<a href="/contacts" class="text-[#f9f8f6] hover:text-[#a68a56] transition-colors" title="Contacts">
-									<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
+									<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
 								</a>
 							</nav>
 						</div>
-						<a href="/" class="text-[#d4c299] hover:text-[#a68a56] transition-colors">
-							<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg>
-						</a>
+						<div class="flex flex-col gap-6">
+							<button onclick="checkUpdate()" class="text-[#d4c299] hover:text-[#a68a56] transition-colors" title="Check For Updates">
+								<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+							</button>
+							<a href="/" class="text-[#d4c299] hover:text-[#a68a56] transition-colors" title="Logout">
+								<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg>
+							</a>
+						</div>
 					</div>
 				}
 				<div class="z-10 flex-1 flex flex-col p-8 h-full overflow-hidden bg-black/60 backdrop-blur-sm">
 					{ children... }
 				</div>
 			</div>
+			
+			@UpdateWizardModal()
+
 			if showSidebar {
 				<script>
 					document.addEventListener('DOMContentLoaded', () => {
@@ -101,17 +131,17 @@ templ Layout(title string, showSidebar bool) {
 							sidebarExpanded.classList.add('hidden');
 							sidebarCollapsed.classList.remove('hidden');
 						}
-						btnClose.addEventListener('click', () => {
+						btnClose?.addEventListener('click', () => {
 							sidebarExpanded.classList.add('hidden');
 							sidebarCollapsed.classList.remove('hidden');
 							localStorage.setItem('luminalex_sidebar_collapsed', 'true');
 						});
-						btnOpen.addEventListener('click', () => {
+						btnOpen?.addEventListener('click', () => {
 							sidebarCollapsed.classList.add('hidden');
 							sidebarExpanded.classList.remove('hidden');
 							localStorage.setItem('luminalex_sidebar_collapsed', 'false');
 						});
-						searchInput.addEventListener('input', (e) => {
+						searchInput?.addEventListener('input', (e) => {
 							const term = e.target.value.toLowerCase();
 							menuItems.forEach(item => {
 								const text = item.querySelector('.menu-text').textContent.toLowerCase();
@@ -119,6 +149,60 @@ templ Layout(title string, showSidebar bool) {
 							});
 						});
 					});
+
+					async function checkUpdate() {
+						const modal = document.getElementById('update-wizard-modal');
+						const step1 = document.getElementById('updater-step-1');
+						const noUpdate = document.getElementById('updater-no-update');
+						const loading = document.getElementById('updater-checking');
+						
+						modal.classList.remove('hidden');
+						loading.classList.remove('hidden');
+
+						try {
+							const res = await fetch('/api/check-update');
+							const data = await res.json();
+							loading.classList.add('hidden');
+							
+							if(data.has_update) {
+								document.getElementById('update-target-version').textContent = data.latest_ver;
+								document.getElementById('update-release-notes').textContent = data.release_notes;
+								document.getElementById('start-update-btn').onclick = () => doUpdate(data.download_url);
+								step1.classList.remove('hidden');
+							} else {
+								noUpdate.classList.remove('hidden');
+							}
+						} catch(e) {
+							alert("Network Error checking for updates.");
+							modal.classList.add('hidden');
+						}
+					}
+
+					async function doUpdate(url) {
+						document.getElementById('updater-step-1').classList.add('hidden');
+						document.getElementById('updater-step-2').classList.remove('hidden');
+						const bar = document.getElementById('update-progress-bar');
+						bar.style.width = '10%';
+
+						try {
+							const res = await fetch('/api/update/apply', {
+								method: 'POST',
+								headers: {'Content-Type': 'application/json'},
+								body: JSON.stringify({ url: url })
+							});
+							bar.style.width = '100%';
+							if(res.ok) {
+								document.getElementById('updater-step-2').classList.add('hidden');
+								document.getElementById('updater-step-3').classList.remove('hidden');
+							}
+						} catch(e) {
+							alert("Error applying update.");
+						}
+					}
+
+					async function restartApp() {
+						await fetch('/api/update/restart', { method: 'POST' });
+					}
 				</script>
 			}
 		</body>

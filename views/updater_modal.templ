@@ -2,31 +2,52 @@ package views
 
 templ UpdateWizardModal() {
 	<div id="update-wizard-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md">
-		<div class="bg-[#0b1d2e] border-2 border-[#a68a56] shadow-2xl w-full max-w-lg p-6 flex flex-col gap-6">
+		<div class="bg-[#0b1d2e] border-2 border-[#a68a56] shadow-2xl w-full max-w-lg p-6 flex flex-col gap-6 rounded-lg">
 			<div class="flex items-center justify-between border-b border-[#a68a56]/30 pb-3">
 				<div class="flex items-center gap-3">
-					<div class="w-3 h-3 bg-[#a68a56] animate-ping"></div>
-					<h3 class="text-[#a68a56] text-base font-bold uppercase tracking-widest">System Update Available</h3>
+					<div class="w-3 h-3 bg-[#a68a56] rounded-full animate-ping"></div>
+					<h3 class="text-[#a68a56] text-base font-bold uppercase tracking-widest">System Update</h3>
 				</div>
-				<button id="close-updater-btn" class="text-[#f9f8f6]/60 hover:text-[#f9f8f6] text-xs uppercase tracking-wider">Dismiss</button>
+				<button onclick="document.getElementById('update-wizard-modal').classList.add('hidden')" class="text-[#f9f8f6]/60 hover:text-[#f9f8f6] text-xs uppercase tracking-wider">Dismiss</button>
 			</div>
 
-			<div id="updater-step-1" class="flex flex-col gap-4">
+			<div id="updater-checking" class="hidden flex-col items-center justify-center py-6 gap-4">
+				<div class="w-10 h-10 border-4 border-[#a68a56] border-t-transparent rounded-full animate-spin"></div>
+				<p class="text-xs text-[#a68a56] uppercase tracking-widest font-bold">Checking GitHub for software updates...</p>
+			</div>
+
+			<div id="updater-no-update" class="hidden flex-col items-center justify-center py-6 gap-4 text-center">
+				<svg class="w-12 h-12 text-emerald-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+				<p class="text-xs text-emerald-400 uppercase tracking-widest font-bold">Latest Version Installed</p>
+			</div>
+
+			<div id="updater-step-1" class="hidden flex-col gap-4">
 				<p class="text-xs text-[#f9f8f6]/90 leading-relaxed font-sans">
-					A new software version (<span id="update-target-version" class="text-[#a68a56] font-bold"></span>) is available on GitHub.
+					Version <span id="update-target-version" class="text-[#a68a56] font-bold"></span> is available for download.
 				</p>
-				<div class="bg-black/40 border border-[#a68a56]/20 p-3 max-h-36 overflow-y-auto font-sans">
+				<div class="bg-black/40 border border-[#a68a56]/20 p-3 max-h-36 overflow-y-auto font-sans rounded">
 					<p class="text-[10px] uppercase text-[#a68a56] tracking-wider mb-1 font-bold">Release Notes</p>
 					<div id="update-release-notes" class="text-xs text-[#f9f8f6]/70 whitespace-pre-wrap"></div>
 				</div>
-				<button id="start-update-btn" class="w-full bg-[#0b1d2e] border border-[#a68a56] text-[#a68a56] hover:bg-[#a68a56] hover:text-[#0b1d2e] py-3 text-xs uppercase tracking-widest font-bold transition-colors">
-					Install Update & Restart
+				<button id="start-update-btn" class="w-full bg-[#a68a56] text-[#0b1d2e] py-3 text-xs uppercase tracking-widest font-bold transition-all hover:bg-[#d4c299] rounded shadow-md">
+					Apply Update
 				</button>
 			</div>
 
 			<div id="updater-step-2" class="hidden flex-col items-center justify-center py-6 gap-4">
-				<div class="w-12 h-12 border-4 border-[#a68a56] border-t-transparent rounded-full animate-spin"></div>
-				<p class="text-xs text-[#a68a56] uppercase tracking-widest animate-pulse font-bold">Downloading and applying update package...</p>
+				<div class="w-10 h-10 border-4 border-[#a68a56] border-t-transparent rounded-full animate-spin"></div>
+				<p class="text-xs text-[#a68a56] uppercase tracking-widest font-bold">Downloading update binary...</p>
+				<div class="w-full bg-black/40 h-2 mt-4 rounded overflow-hidden border border-[#a68a56]/30">
+					<div id="update-progress-bar" class="h-full bg-[#a68a56] w-0 transition-all duration-300"></div>
+				</div>
+			</div>
+
+			<div id="updater-step-3" class="hidden flex-col items-center justify-center py-6 gap-4 text-center">
+				<svg class="w-12 h-12 text-emerald-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+				<p class="text-xs text-emerald-400 uppercase tracking-widest font-bold">Update Applied Successfully</p>
+				<button onclick="restartApp()" class="w-full bg-[#a68a56] text-[#0b1d2e] py-3 text-xs uppercase tracking-widest font-bold transition-all hover:bg-[#d4c299] rounded shadow-md mt-4">
+					Restart Now
+				</button>
 			</div>
 		</div>
 	</div>

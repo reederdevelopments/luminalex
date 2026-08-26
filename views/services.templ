@@ -1,0 +1,319 @@
+
+package views
+
+templ Services() {
+	@Layout("LuminaLex - Services", true) {
+		<div class="z-10 flex-1 flex flex-col p-8 h-full overflow-hidden bg-black/60 backdrop-blur-sm animate-fade-in-up">
+			<div class="flex justify-between items-center border-b border-[#a68a56]/50 mb-6 pb-4">
+				<div class="flex gap-4 w-full overflow-x-auto no-scrollbar" id="services-tabs">
+					<button class="svc-tab-btn active px-4 py-2 text-sm uppercase tracking-widest text-[#a68a56] border-b-2 border-[#a68a56] transition-all hover:bg-[#a68a56]/10 rounded-t-md" data-target="Wentzel Law">Wentzel Law</button>
+					<button class="svc-tab-btn px-4 py-2 text-sm uppercase tracking-widest text-[#f9f8f6] hover:text-[#a68a56] border-b-2 border-transparent transition-all hover:bg-[#a68a56]/10 rounded-t-md" data-target="High Court">High Court</button>
+					<button class="svc-tab-btn px-4 py-2 text-sm uppercase tracking-widest text-[#f9f8f6] hover:text-[#a68a56] border-b-2 border-transparent transition-all hover:bg-[#a68a56]/10 rounded-t-md" data-target="Magistrate's Court">Magistrate's Court</button>
+				</div>
+				<div class="flex items-center gap-3 shrink-0">
+					<input type="text" id="services-search" placeholder="SEARCH SERVICES..." class="w-64 bg-black/40 border border-[#a68a56]/30 text-[#f9f8f6] p-2 text-xs focus:outline-none focus:border-[#a68a56] transition-colors uppercase tracking-widest rounded"/>
+					<button onclick="exportServicesTable()" id="btn-export-services" class="bg-[#0b1d2e] border border-emerald-600/50 text-emerald-500 hover:bg-emerald-600/20 px-4 py-2 text-xs uppercase tracking-widest transition-all font-sans rounded shadow-md flex items-center gap-2">
+						<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+						Export View
+					</button>
+				</div>
+			</div>
+
+			<div class="w-full flex-1 overflow-auto border border-[#a68a56]/30 bg-black/20 rounded shadow-lg flex flex-col">
+				<table class="w-full text-left border-collapse table-auto" id="services-table">
+					<thead class="sticky top-0 bg-[#0b1d2e] z-10 shadow-md">
+						<tr class="border-b-2 border-[#a68a56]/50 text-[#a68a56] text-[10px] uppercase tracking-widest">
+							<th class="p-4 w-1/2">Reference / Description</th>
+							<th class="p-4">Standard Rate</th>
+							<th class="p-4">Duration / Unit</th>
+							<th class="p-4 text-right">Actions</th>
+						</tr>
+					</thead>
+					<tbody id="services-table-body" class="divide-y divide-[#a68a56]/20 text-xs">
+					</tbody>
+				</table>
+			</div>
+		</div>
+
+		<script>
+    const STATE = {
+        activeTab: 'Wentzel Law',
+        services: [],
+        editingId: null,
+        searchTerm: ''
+    };
+
+    const DURATION_UNITS = [
+        'Per 15 mins',
+        'Per hour',
+        'Per day',
+        'Per document',
+        'Per page',
+        'Fixed fee'
+    ];
+
+    async function loadServices() {
+        try {
+            const response = await fetch(`/api/services?type=${encodeURIComponent(STATE.activeTab)}`);
+            if (response.ok) {
+                const data = await response.json();
+                // Ensure it's always an array, even if the DB returns null
+                STATE.services = data ? data : []; 
+            } else {
+                console.error("Failed to fetch services. Status:", response.status);
+                STATE.services = [];
+            }
+        } catch (e) {
+            console.error("Error loading services:", e);
+            STATE.services = [];
+        } finally {
+            // Guarantee the table (and blank row) renders no matter what
+            renderServicesTable();
+        }
+    }
+
+    function renderServicesTable() {
+        const tbody = document.getElementById('services-table-body');
+        if (!tbody) return;
+        
+        tbody.innerHTML = '';
+
+        const safeServices = Array.isArray(STATE.services) ? STATE.services : [];
+        const filtered = safeServices.filter(s => {
+            if (!STATE.searchTerm) return true;
+            const term = STATE.searchTerm.toLowerCase();
+            return (s.description || '').toLowerCase().includes(term) || 
+                   (s.standard_rate || '').toString().includes(term) || 
+                   (s.duration_unit || '').toLowerCase().includes(term);
+        });
+
+        filtered.forEach(s => {
+            if (STATE.editingId === s.id) {
+                tbody.appendChild(createEditRow(s));
+            } else {
+                tbody.appendChild(createViewRow(s));
+            }
+        });
+
+        // Always append the blank row if we are not editing
+        if (!STATE.editingId) {
+            tbody.appendChild(createAddRow());
+        }
+    }
+
+    function createViewRow(s) {
+        const tr = document.createElement('tr');
+        tr.className = 'hover:bg-[#a68a56]/10 transition-colors text-[#f9f8f6] service-row';
+        tr.innerHTML = `
+            <td class="p-4 font-bold text-sm">${s.description || ''}</td>
+            <td class="p-4 font-mono text-[#a68a56]">${Number(s.standard_rate || 0).toFixed(2)}</td>
+            <td class="p-4 uppercase text-[10px] tracking-widest">${s.duration_unit || ''}</td>
+            <td class="p-4 text-right flex justify-end gap-4">
+                <button class="text-[#a68a56] hover:text-[#d4c299] uppercase tracking-widest text-[10px] font-bold" onclick="startEdit('${s.id}')">Edit</button>
+                <button class="text-red-500 hover:text-red-400 uppercase tracking-widest text-[10px] font-bold" onclick="deleteService('${s.id}')">Delete</button>
+            </td>
+        `;
+        return tr;
+    }
+
+    function createEditRow(s) {
+        const tr = document.createElement('tr');
+        tr.className = 'bg-[#a68a56]/10 text-[#f9f8f6] service-row';
+        
+        let options = '';
+        DURATION_UNITS.forEach(u => {
+            options += `<option value="${u}" class="bg-[#0b1d2e] text-[#f9f8f6]" ${u === s.duration_unit ? 'selected' : ''}>${u}</option>`;
+        });
+
+        tr.innerHTML = `
+            <td class="p-3">
+                <input type="text" id="edit-desc-${s.id}" value="${(s.description || '').replace(/"/g, '&quot;')}" class="w-full bg-black/60 border border-[#a68a56]/50 text-[#f9f8f6] p-2 text-xs focus:outline-none focus:border-[#a68a56] rounded"/>
+            </td>
+            <td class="p-3">
+                <input type="number" step="0.01" id="edit-rate-${s.id}" value="${s.standard_rate || 0}" class="w-full bg-black/60 border border-[#a68a56]/50 text-[#f9f8f6] p-2 text-xs focus:outline-none focus:border-[#a68a56] rounded font-mono"/>
+            </td>
+            <td class="p-3">
+                <select id="edit-unit-${s.id}" class="w-full bg-[#0b1d2e] border border-[#a68a56]/50 text-[#f9f8f6] p-2 text-[10px] uppercase tracking-widest focus:outline-none focus:border-[#a68a56] rounded">
+                    ${options}
+                </select>
+            </td>
+            <td class="p-3 text-right flex justify-end gap-4 mt-1">
+                <button class="text-emerald-400 hover:text-emerald-300 uppercase tracking-widest text-[10px] font-bold" onclick="saveService('${s.id}')">Save</button>
+                <button class="text-red-400 hover:text-red-300 uppercase tracking-widest text-[10px] font-bold" onclick="cancelEdit()">Cancel</button>
+            </td>
+        `;
+        return tr;
+    }
+
+    function createAddRow() {
+        const tr = document.createElement('tr');
+        tr.className = 'bg-black/40 text-[#f9f8f6] service-row border-t-2 border-[#a68a56]/30';
+        
+        let options = '';
+        DURATION_UNITS.forEach(u => {
+            options += `<option value="${u}" class="bg-[#0b1d2e] text-[#f9f8f6]">${u}</option>`;
+        });
+
+        tr.innerHTML = `
+            <td class="p-3">
+                <input type="text" id="add-desc" placeholder="New Reference / Description" class="w-full bg-black/60 border border-[#a68a56]/50 text-[#f9f8f6] p-2 text-xs focus:outline-none focus:border-[#a68a56] rounded"/>
+            </td>
+            <td class="p-3">
+                <input type="number" step="0.01" id="add-rate" placeholder="0.00" class="w-full bg-black/60 border border-[#a68a56]/50 text-[#f9f8f6] p-2 text-xs focus:outline-none focus:border-[#a68a56] rounded font-mono"/>
+            </td>
+            <td class="p-3">
+                <select id="add-unit" class="w-full bg-[#0b1d2e] border border-[#a68a56]/50 text-[#f9f8f6] p-2 text-[10px] uppercase tracking-widest focus:outline-none focus:border-[#a68a56] rounded">
+                    ${options}
+                </select>
+            </td>
+            <td class="p-3 text-right flex justify-end gap-4 mt-1">
+                <button class="text-emerald-400 hover:text-emerald-300 uppercase tracking-widest text-[10px] font-bold" onclick="saveService('')">Add</button>
+            </td>
+        `;
+        return tr;
+    }
+
+    function startEdit(id) {
+        STATE.editingId = id;
+        renderServicesTable();
+    }
+
+    function cancelEdit() {
+        STATE.editingId = null;
+        renderServicesTable();
+    }
+
+    async function saveService(id) {
+        const isNew = !id;
+        const descId = isNew ? 'add-desc' : `edit-desc-${id}`;
+        const rateId = isNew ? 'add-rate' : `edit-rate-${id}`;
+        const unitId = isNew ? 'add-unit' : `edit-unit-${id}`;
+
+        const desc = document.getElementById(descId).value.trim();
+        const rate = parseFloat(document.getElementById(rateId).value) || 0;
+        const unit = document.getElementById(unitId).value;
+
+        if (!desc) {
+            alert("Reference / Description cannot be empty.");
+            return;
+        }
+
+        const payload = {
+            id: id,
+            service_type: STATE.activeTab,
+            description: desc,
+            standard_rate: rate,
+            duration_unit: unit
+        };
+
+        try {
+            const res = await fetch('/api/services/save', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            if (res.ok) {
+                STATE.editingId = null;
+                await loadServices();
+            } else {
+                alert("Failed to save service.");
+            }
+        } catch (e) {
+            console.error(e);
+        }
+    }
+
+    async function deleteService(id) {
+        if (!confirm("Are you sure you want to delete this service?")) return;
+        
+        try {
+            const res = await fetch('/api/services/delete', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: id })
+            });
+            if (res.ok) {
+                await loadServices();
+            } else {
+                alert("Failed to delete service.");
+            }
+        } catch (e) {
+            console.error(e);
+        }
+    }
+
+    async function exportServicesTable() {
+        const table = document.getElementById('services-table');
+        if (!table) return;
+
+        const headerCells = Array.from(table.querySelectorAll('thead th'));
+        const headers = headerCells.slice(0, headerCells.length - 1).map(th => th.innerText.trim());
+
+        const rows = [];
+        table.querySelectorAll('tbody tr').forEach(tr => {
+            // Only export non-editing rows (rows without input fields)
+            if (!tr.querySelector('input')) {
+                const cells = Array.from(tr.querySelectorAll('td'));
+                if (cells.length > 0) {
+                    rows.push(cells.slice(0, cells.length - 1).map(td => td.innerText.trim().replace(/\n/g, ' ')));
+                }
+            }
+        });
+
+        if (rows.length === 0) {
+            alert("No data available to export.");
+            return;
+        }
+
+        const filename = `SERVICES_${STATE.activeTab.replace(/\s+/g, '_').toUpperCase()}`;
+
+        try {
+            const res = await fetch('/api/contacts/export_view', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ filename, headers, rows })
+            });
+            
+            if (!res.ok) alert("Export failed.");
+        } catch (e) {
+            console.error(e);
+            alert("Export failed due to a network error.");
+        }
+    }
+
+    // Initialize the page
+    document.addEventListener('DOMContentLoaded', () => {
+        const tabs = document.querySelectorAll('.svc-tab-btn');
+        tabs.forEach(tab => {
+            tab.addEventListener('click', (e) => {
+                tabs.forEach(t => {
+                    t.classList.remove('active', 'text-[#a68a56]', 'border-[#a68a56]');
+                    t.classList.add('text-[#f9f8f6]', 'border-transparent');
+                });
+                const target = e.currentTarget;
+                target.classList.add('active', 'text-[#a68a56]', 'border-[#a68a56]');
+                target.classList.remove('text-[#f9f8f6]', 'border-transparent');
+                
+                STATE.activeTab = target.getAttribute('data-target');
+                STATE.editingId = null;
+                
+                const searchInput = document.getElementById('services-search');
+                if (searchInput) STATE.searchTerm = searchInput.value;
+                
+                loadServices();
+            });
+        });
+
+        const searchInput = document.getElementById('services-search');
+        if (searchInput) {
+            searchInput.addEventListener('input', (e) => {
+                STATE.searchTerm = e.target.value;
+                renderServicesTable();
+            });
+        }
+
+        loadServices();
+    });
+</script>
+	}
+}
